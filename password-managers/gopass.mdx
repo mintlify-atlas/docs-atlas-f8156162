@@ -1,0 +1,478 @@
+---
+title: gopass
+description: Integrate gopass with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [gopass](https://www.gopass.pw/), a password manager for teams built on top of `pass`.
+
+## Setup
+
+### Install gopass
+
+<CodeGroup>
+```bash macOS
+brew install gopass
+```
+
+```bash Ubuntu/Debian
+sudo apt install gopass
+```
+
+```bash Fedora
+sudo dnf install gopass
+```
+
+```bash From Source
+go install github.com/gopasspw/gopass@latest
+```
+</CodeGroup>
+
+### Initialize gopass
+
+If you haven't set up gopass yet:
+
+```bash
+# Initialize with your GPG key
+gopass init your-gpg-id@example.com
+
+# Or create a new team
+gopass init --store=work work-team@company.com
+```
+
+### Add Secrets
+
+```bash
+# Add a secret
+gopass insert github/token
+
+# Generate a random password
+gopass generate aws/secret-key 32
+
+# Add multiline data
+gopass insert -m ssh/private-key
+```
+
+## Template Function
+
+### `gopass`
+
+Get the first line from a gopass entry:
+
+```text
+{{ gopass "github/token" }}
+```
+
+This runs `gopass show -o github/token` and returns the first line.
+
+## Usage Examples
+
+### Simple Passwords
+
+<CodeGroup>
+```text GitHub Token
+# ~/.config/gh/config.yml.tmpl
+github_token: {{ gopass "github/token" }}
+```
+
+```text NPM Token
+# ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ gopass "npm/token" }}
+```
+
+```text API Key
+# ~/.config/app/config.yml.tmpl
+api_key: {{ gopass "service/api-key" }}
+```
+</CodeGroup>
+
+### Git Configuration
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = John Doe
+    email = {{ gopass "git/email" }}
+    signingkey = {{ gopass "git/signing-key" }}
+
+[github]
+    user = {{ gopass "github/username" }}
+
+[gitlab]
+    user = {{ gopass "gitlab/username" }}
+```
+
+### AWS Credentials
+
+```bash
+# Store AWS credentials in gopass
+gopass insert aws/personal/access-key-id
+gopass insert aws/personal/secret-access-key
+gopass insert aws/work/access-key-id
+gopass insert aws/work/secret-access-key
+```
+
+```text ~/.aws/credentials.tmpl
+[personal]
+aws_access_key_id = {{ gopass "aws/personal/access-key-id" }}
+aws_secret_access_key = {{ gopass "aws/personal/secret-access-key" }}
+
+[work]
+aws_access_key_id = {{ gopass "aws/work/access-key-id" }}
+aws_secret_access_key = {{ gopass "aws/work/secret-access-key" }}
+```
+
+### Database Credentials
+
+```bash
+# Store database credentials
+gopass insert db/production/host
+gopass insert db/production/username
+gopass insert db/production/password
+```
+
+```text ~/.config/db/config.yml.tmpl
+production:
+  host: {{ gopass "db/production/host" }}
+  port: 5432
+  username: {{ gopass "db/production/username" }}
+  password: {{ gopass "db/production/password" }}
+  database: production_db
+
+development:
+  host: localhost
+  port: 5432
+  username: dev
+  password: {{ gopass "db/development/password" }}
+  database: app_dev
+```
+
+### Multiple API Keys
+
+```text ~/.config/api-keys.env.tmpl
+# Version Control
+GITHUB_TOKEN={{ gopass "github/token" }}
+GITLAB_TOKEN={{ gopass "gitlab/token" }}
+
+# Cloud Providers
+AWS_ACCESS_KEY_ID={{ gopass "aws/access-key-id" }}
+AWS_SECRET_ACCESS_KEY={{ gopass "aws/secret-access-key" }}
+DIGITALOCEAN_TOKEN={{ gopass "digitalocean/token" }}
+
+# Development APIs
+OPENAI_API_KEY={{ gopass "openai/api-key" }}
+ANTHROPIC_API_KEY={{ gopass "anthropic/api-key" }}
+
+# Payment Services
+STRIPE_SECRET_KEY={{ gopass "stripe/secret-key" }}
+STRIPE_PUBLISHABLE_KEY={{ gopass "stripe/publishable-key" }}
+```
+
+### SSH Configuration
+
+```bash
+# Store SSH usernames
+gopass insert ssh/github/username
+gopass insert ssh/gitlab/username
+gopass insert ssh/work-server/username
+```
+
+```text ~/.ssh/config.tmpl
+Host github.com
+    User {{ gopass "ssh/github/username" }}
+    IdentityFile ~/.ssh/id_ed25519
+
+Host gitlab.com
+    User {{ gopass "ssh/gitlab/username" }}
+    IdentityFile ~/.ssh/id_rsa
+
+Host work-server
+    HostName server.company.com
+    User {{ gopass "ssh/work-server/username" }}
+    IdentityFile ~/.ssh/work_id_rsa
+```
+
+### Docker Registry Credentials
+
+```bash
+# Store Docker credentials
+gopass insert docker/username
+gopass insert docker/password
+```
+
+```text ~/.docker/config.json.tmpl
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "auth": "{{ printf "%s:%s" (gopass "docker/username") (gopass "docker/password") | b64enc }}"
+    }
+  }
+}
+```
+
+## Configuration
+
+### Custom Command
+
+If `gopass` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[gopass]
+    command = "/custom/path/to/gopass"
+```
+
+## gopass Features
+
+### Multiple Stores (Mounts)
+
+gopass supports multiple password stores:
+
+```bash
+# Initialize stores
+gopass init --store=personal personal@example.com
+gopass init --store=work work@company.com
+
+# Use different stores
+gopass insert personal/github/token
+gopass insert work/gitlab/token
+```
+
+Access in templates:
+
+```text
+{{ gopass "personal/github/token" }}
+{{ gopass "work/gitlab/token" }}
+```
+
+### Team Collaboration
+
+gopass makes it easy to share passwords with a team:
+
+```bash
+# Initialize for multiple recipients
+gopass init --store=team user1@company.com user2@company.com
+
+# Clone a team store
+gopass clone git@github.com:company/passwords.git team
+```
+
+### Sync with Git
+
+gopass automatically commits changes to git:
+
+```bash
+# Setup git remote
+gopass git remote add origin git@github.com:username/passwords.git
+
+# Push changes
+gopass git push
+
+# Pull changes
+gopass git pull
+
+# Sync (pull then push)
+gopass sync
+```
+
+### Generate Passwords
+
+```bash
+# Generate a 32-character password
+gopass generate github/token 32
+
+# Generate without symbols
+gopass generate -n aws/secret-key 40
+
+# Generate and copy to clipboard
+gopass generate -c service/api-key 24
+```
+
+## Organizing Your Password Store
+
+Use a hierarchical structure:
+
+```
+~/.local/share/gopass/stores/root/
+├── personal/
+│   ├── email/
+│   │   └── gmail.gpg
+│   ├── github/
+│   │   ├── token.gpg
+│   │   └── username.gpg
+│   └── ssh/
+│       └── passphrase.gpg
+├── work/
+│   ├── aws/
+│   │   ├── access-key-id.gpg
+│   │   └── secret-access-key.gpg
+│   ├── github/
+│   │   └── token.gpg
+│   └── vpn/
+│       └── password.gpg
+└── shared/
+    └── wifi/
+        └── home.gpg
+```
+
+## Advanced Usage
+
+### Environment-Specific Secrets
+
+```text ~/.config/app/config.yml.tmpl
+{{ if eq .chezmoi.hostname "work-laptop" -}}
+# Work environment
+api_key: {{ gopass "work/api-key" }}
+db_password: {{ gopass "work/db-password" }}
+{{ else -}}
+# Personal environment
+api_key: {{ gopass "personal/api-key" }}
+db_password: {{ gopass "personal/db-password" }}
+{{ end }}
+```
+
+### Copy Secrets to Clipboard
+
+```bash
+# Copy to clipboard
+gopass show -c github/token
+
+# Copy for 10 seconds
+gopass show -C 10 github/token
+```
+
+### Search Secrets
+
+```bash
+# Search for secrets
+gopass search github
+
+# Grep for content
+gopass grep "api-key"
+```
+
+### Audit and Security
+
+```bash
+# Check recipients
+gopass recipients
+
+# Audit store
+gopass audit
+
+# Fix permissions
+gopass fsck
+```
+
+## Complete Examples
+
+### Multi-Service Configuration
+
+```text ~/.config/services.yml.tmpl
+github:
+  username: {{ gopass "github/username" }}
+  token: {{ gopass "github/token" }}
+  email: {{ gopass "github/email" }}
+
+aws:
+  access_key_id: {{ gopass "aws/access-key-id" }}
+  secret_access_key: {{ gopass "aws/secret-access-key" }}
+  region: us-east-1
+
+database:
+  host: {{ gopass "database/host" }}
+  port: {{ gopass "database/port" }}
+  username: {{ gopass "database/username" }}
+  password: {{ gopass "database/password" }}
+
+smtp:
+  host: {{ gopass "email/smtp-host" }}
+  port: {{ gopass "email/smtp-port" }}
+  username: {{ gopass "email/username" }}
+  password: {{ gopass "email/password" }}
+```
+
+## Troubleshooting
+
+### GPG Key Not Found
+
+Ensure your GPG key is available:
+
+```bash
+gpg --list-secret-keys
+```
+
+### Secret Not Found
+
+List all secrets:
+
+```bash
+gopass ls
+```
+
+Or search:
+
+```bash
+gopass search github
+```
+
+### Command Not Found
+
+Ensure gopass is installed:
+
+```bash
+which gopass
+gopass --version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ gopass "test/password" }}'
+```
+
+### Sync Issues
+
+Force sync with git:
+
+```bash
+gopass sync
+```
+
+Or manually:
+
+```bash
+gopass git pull
+gopass git push
+```
+
+## gopass vs pass
+
+| Feature | pass | gopass |
+|---------|------|--------|
+| Backend | GPG + Git | GPG + Git |
+| Team Support | Manual | Built-in |
+| Multiple Stores | Manual | Native |
+| Auto-sync | No | Yes |
+| Binary Attachments | Extensions | Native |
+| YAML/JSON Support | No | Yes |
+| UI | CLI only | CLI + GUI |
+| OTP Support | Extension | Native |
+
+## Best Practices
+
+1. **Use stores**: Separate personal, work, and shared passwords
+2. **Sync regularly**: Enable automatic git sync
+3. **Use hierarchy**: Organize secrets in logical folders
+4. **Generate passwords**: Use gopass generate for strong passwords
+5. **Audit regularly**: Run `gopass audit` to check for issues
+6. **Backup**: Keep encrypted backups of your password store
+7. **Team sharing**: Use proper recipient management for teams
+8. **Use descriptive names**: Make entry names clear and searchable
+
+## See Also
+
+- [gopass Website](https://www.gopass.pw/)
+- [gopass GitHub](https://github.com/gopasspw/gopass)
+- [gopass Documentation](https://github.com/gopasspw/gopass/tree/master/docs)
+- [pass](/password-managers/pass) - Standard Unix password manager
+- [Template Functions Reference](/reference/templates/password-manager-functions#gopass)

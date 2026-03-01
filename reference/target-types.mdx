@@ -1,0 +1,235 @@
+---
+title: Target Types
+description: Different types of targets chezmoi can manage
+---
+
+# Target Types
+
+chezmoi will create, update, and delete files, directories, and symbolic links in the destination directory, and run scripts. chezmoi deterministically performs actions in ASCII order of their target name.
+
+<Note>
+Given a file `dot_a`, a script `run_z`, and a directory `exact_dot_c`, chezmoi will first create `.a`, create `.c`, and then execute `run_z`.
+</Note>
+
+## Files
+
+Files are represented by regular files in the source state. The file's attributes control how it is processed and applied to the destination.
+
+### Attributes
+
+- **`encrypted_`**: The file in the source state is encrypted
+- **`executable_`**: Sets the executable bits in the target state
+- **`private_`**: Clears all group and world permissions
+- **`readonly_`**: Clears all write permission bits in the target state
+- **`.tmpl`**: The file is interpreted as a template
+- **`empty_`**: Ensures the file is not removed even if empty
+
+By default, if the target contents are empty, the file will be removed unless it has an `empty_` prefix.
+
+### Example
+
+```bash
+# Source: ~/.local/share/chezmoi/dot_bashrc
+# Target: ~/.bashrc
+
+# Source: ~/.local/share/chezmoi/executable_dot_local_bin_myscript
+# Target: ~/.local/bin/myscript (with +x permission)
+
+# Source: ~/.local/share/chezmoi/private_dot_ssh_config
+# Target: ~/.ssh/config (mode 0600)
+```
+
+## Create Files
+
+Files with the `create_` prefix will be created in the target state with the contents of the file in the source state if they do not already exist.
+
+If the file in the destination state already exists, then its contents will be left unchanged. This is useful for files that the user is expected to modify.
+
+### Example
+
+```bash
+# Source: ~/.local/share/chezmoi/create_dot_config_app_settings.json
+# Target: ~/.config/app/settings.json
+# Behavior: Created only if it doesn't exist, never overwritten
+```
+
+## Modify Files
+
+Files with the `modify_` prefix are treated as scripts that modify an existing file.
+
+### Template Modification
+
+If the file contains the string `chezmoi:modify-template`, then all lines containing that string will be removed, and the rest of the file will be interpreted as a template. The template is executed with the existing file's contents passed as a string in `.chezmoi.stdin`. The result of the template execution becomes the new contents of the file.
+
+```go title="modify_dot_bashrc.tmpl"
+# chezmoi:modify-template
+{{ .chezmoi.stdin }}
+
+# Added by chezmoi
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### Script Modification
+
+Otherwise, the script receives the current contents of the target file on standard input and must write the new contents to standard output.
+
+If the target file does not exist, the script's standard input will be empty, and the script is responsible for generating the complete file contents.
+
+```bash title="modify_dot_profile"
+#!/bin/bash
+# Read existing content
+cat
+
+# Append new content
+echo 'export EDITOR=vim'
+```
+
+## Remove Entries
+
+Files with the `remove_` prefix will cause the corresponding entry (file, directory, or symlink) to be removed in the target state.
+
+### Example
+
+```bash
+# Source: ~/.local/share/chezmoi/remove_dot_oldconfig
+# Effect: Removes ~/.oldconfig if it exists
+```
+
+## Directories
+
+Directories are represented by regular directories in the source state.
+
+### Attributes
+
+- **`exact_`**: Causes chezmoi to remove any entries in the target state that are not explicitly specified in the source state
+- **`private_`**: Causes chezmoi to clear all group and world permissions
+- **`readonly_`**: Clears all write permission bits
+- **`external_`**: Ignores attributes in child entries
+
+### Example
+
+```bash
+# Normal directory
+~/.local/share/chezmoi/dot_config
+
+# Exact directory (removes unmanaged files)
+~/.local/share/chezmoi/exact_dot_config_app
+
+# Private directory
+~/.local/share/chezmoi/private_dot_ssh
+```
+
+## Symbolic Links
+
+Symbolic links are represented by regular files in the source state with the prefix `symlink_`.
+
+The contents of the file will have a trailing newline stripped, and the result will be interpreted as the target of the symbolic link.
+
+Symbolic links with the `.tmpl` suffix in the source state are interpreted as templates. If the target of the symbolic link is empty or consists only of whitespace, then the target is removed.
+
+### Example
+
+```bash title="~/.local/share/chezmoi/symlink_dot_vimrc"
+.config/nvim/init.vim
+```
+
+```bash title="~/.local/share/chezmoi/symlink_dot_config_nvim.tmpl"
+{{ if eq .chezmoi.os "darwin" }}
+/Applications/Neovim.app/Contents/Resources/nvim
+{{ else }}
+/usr/share/nvim
+{{ end }}
+```
+
+## Scripts
+
+Scripts are represented as regular files in the source state with prefix `run_`. The file's contents (after being interpreted as a template if it has a `.tmpl` suffix) are executed.
+
+### Execution Timing
+
+- **No timing attribute**: Executed in ASCII order with respect to files, directories, and symlinks
+- **`before_`**: Executed before any files, directories, or symlinks are updated
+- **`after_`**: Executed after all files, directories, and symlinks have been updated
+
+### Execution Frequency
+
+- **No frequency attribute**: Executed on every `chezmoi apply`
+- **`once_`**: Executed only if a script with the same contents has not been run successfully before
+- **`onchange_`**: Executed whenever the script contents change
+
+### Examples
+
+```bash title="run_once_install-packages.sh"
+#!/bin/bash
+# This runs only once
+apt-get update
+apt-get install -y vim git
+```
+
+```bash title="run_onchange_update-brewfile.sh.tmpl"
+#!/bin/bash
+# chezmoi:template:left-delimiter="#{{" right-delimiter="}}#"
+# This runs whenever the Brewfile hash changes
+#{{ range .packages }}#
+brew install #{{ . }}#
+#{{ end }}#
+```
+
+```bash title="run_before_backup.sh"
+#!/bin/bash
+# Runs before any changes are applied
+cp -r ~/.config ~/.config.backup
+```
+
+```bash title="run_after_update-completion.sh"
+#!/bin/bash  
+# Runs after all changes are applied
+source ~/.bashrc
+```
+
+### Working Directory
+
+Scripts will normally run with their working directory set to their equivalent location in the destination directory. If the equivalent location in the destination directory either does not exist or is not a directory, then chezmoi will walk up the script's directory hierarchy and run the script in the first directory that exists and is a directory.
+
+<Note>
+A script in `~/.local/share/chezmoi/dir/run_script` will be run with a working directory of `~/dir`.
+</Note>
+
+### Environment Variables
+
+chezmoi sets a number of `CHEZMOI*` environment variables when running scripts, corresponding to commonly-used template data variables. Extra environment variables can be set in the `env` or `scriptEnv` configuration variables.
+
+### Interpreters
+
+Scripts are executed using an interpreter, if configured. See the [interpreters documentation](/reference/configuration-file#interpreters) for more details.
+
+## Symlink Mode
+
+By default, chezmoi will create regular files and directories. Setting `mode = "symlink"` in the configuration file will make chezmoi behave more like a dotfile manager that uses symlinks by default.
+
+In symlink mode, `chezmoi apply` will make dotfiles symlinks to files in the source directory if the target is a regular file and is not encrypted, executable, private, or a template.
+
+### Example Configuration
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+mode = "symlink"
+```
+
+## Application Order
+
+chezmoi applies changes in a deterministic order:
+
+1. Read source state
+2. Read destination state  
+3. Compute target state
+4. Run `run_before_` scripts in alphabetical order
+5. Update entries in alphabetical order of their target name (directories before their contents)
+6. Run `run_after_` scripts in alphabetical order
+
+See [Application Order](/reference/application-order) for more details.
+
+## Related Pages
+
+- [Source State Attributes](/reference/source-state-attributes) - File naming conventions
+- [Application Order](/reference/application-order) - Order of operations
+- [Templates](/reference/templates/overview) - Template syntax and features

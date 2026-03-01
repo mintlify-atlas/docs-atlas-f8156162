@@ -1,0 +1,149 @@
+---
+title: edit
+description: Edit the source state of targets
+---
+
+The `edit` command opens files or symlinks in your source state in your default editor. If no targets are specified, it opens the entire source directory.
+
+## Usage
+
+```bash
+chezmoi edit [target]...
+```
+
+## Description
+
+The `edit` command allows you to modify files in the source state using your configured editor. When you edit files:
+
+- **Encrypted files** are automatically decrypted to a temporary directory, and re-encrypted when you save
+- **Hard links** are created (when supported) so the editor sees the target filename, helping with syntax highlighting
+- **Templates** preserve their `.tmpl` extension for proper editor highlighting
+
+## Flags
+
+<ParamField path="-a, --apply" type="boolean" default="false">
+  Apply the target immediately after editing. Ignored if there are no targets. Can be configured via `edit.apply` in the config file.
+</ParamField>
+
+<ParamField path="--hardlink" type="boolean" default="true">
+  Invoke the editor with a hard link to the source file with a name matching the target filename. This helps the editor determine the file type correctly. Can be configured via `edit.hardlink` in the config file.
+  
+  **Note:** Creating hardlinks is not possible between different filesystems. If your `tempDir` resides on a different filesystem (e.g., a tmpfs), this won't work.
+</ParamField>
+
+<ParamField path="--watch" type="boolean" default="false">
+  Automatically apply changes when files are saved. Can be configured via `edit.watch` in the config file.
+  
+  **Limitations:**
+  - Only available when targets are specified (not for directory-wide editing)
+  - All edited files are applied when any file is saved
+  - Only the edited files are watched, not dependent files like `.chezmoitemplates`
+  - Only works on operating systems supported by fsnotify
+  - Only works if `edit.hardlink` is enabled and functional
+</ParamField>
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="--init" type="boolean" default="false">
+  Recreate the config file from the template after editing.
+</ParamField>
+
+## Examples
+
+### Edit a specific file
+
+```bash
+chezmoi edit ~/.bashrc
+```
+
+Opens `~/.local/share/chezmoi/dot_bashrc` in your editor.
+
+### Edit and apply immediately
+
+```bash
+chezmoi edit ~/.bashrc --apply
+```
+
+After you save and exit the editor, changes are immediately applied to `~/.bashrc`.
+
+### Edit with auto-apply on save
+
+```bash
+chezmoi edit ~/.bashrc --watch
+```
+
+Changes are automatically applied every time you save the file.
+
+### Edit the entire source directory
+
+```bash
+chezmoi edit
+```
+
+Opens `~/.local/share/chezmoi` in your editor (useful for IDEs like VS Code).
+
+### Edit multiple files
+
+```bash
+chezmoi edit ~/.bashrc ~/.vimrc ~/.tmux.conf
+```
+
+## Editor Configuration
+
+Set your preferred editor using the `VISUAL` or `EDITOR` environment variable, or configure it in your chezmoi config file:
+
+```toml
+[edit]
+    command = "code"
+    args = ["--wait"]
+```
+
+Common editor configurations:
+
+```bash
+# VS Code
+export EDITOR="code --wait"
+
+# Vim
+export EDITOR=vim
+
+# Neovim
+export EDITOR=nvim
+
+# Nano
+export EDITOR=nano
+
+# Emacs
+export EDITOR=emacs
+```
+
+## Syntax Highlighting for Templates
+
+You can use modelines in your template files to tell your editor how to highlight them:
+
+```bash
+# vim: ft=bash
+{{ if eq .chezmoi.os "linux" }}
+alias ll="ls -la"
+{{ end }}
+```
+
+## Terminal Output
+
+```bash
+$ chezmoi edit ~/.bashrc --apply
+# Editor opens, you make changes and save...
+.bashrc: updating
+```
+
+## Related Commands
+
+- [add](/commands/add) - Add new files to the source state
+- [apply](/commands/apply) - Apply changes without editing
+- [diff](/commands/diff) - Preview changes before applying

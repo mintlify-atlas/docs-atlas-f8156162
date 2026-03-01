@@ -1,0 +1,228 @@
+---
+title: age Encryption
+description: Encrypt your dotfiles with age, a modern encryption tool
+---
+
+chezmoi supports encrypting files with [age](https://age-encryption.org), a simple, modern, and secure file encryption tool.
+
+## Quick Start
+
+Generate a key using `chezmoi age-keygen`:
+
+```bash
+chezmoi age-keygen --output=$HOME/key.txt
+```
+
+This will output your public key:
+
+```
+Public key: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+```
+
+## Configuration
+
+Specify age encryption in your configuration file with at least one identity and one recipient:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "age"
+
+[age]
+    identity = "/home/user/key.txt"
+    recipient = "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p"
+```
+
+<Warning>
+  Make sure `encryption = "age"` is at the top level of your config, before any other sections.
+</Warning>
+
+## Multiple Keys
+
+chezmoi supports multiple identities and recipients for scenarios where you need to decrypt files on multiple machines or share encrypted files with others:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "age"
+
+[age]
+    identities = [
+        "/home/user/key1.txt",
+        "/home/user/key2.txt"
+    ]
+    recipients = [
+        "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p",
+        "age1p3ty9zvgd4rztpfm5nm0gy6ckhlvvfz8upvfr4zjp7qmq5dyp8tqm87hjp"
+    ]
+```
+
+## Symmetric Encryption
+
+To use age's symmetric encryption, specify a single identity and enable symmetric mode:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "age"
+
+[age]
+    identity = "~/.ssh/id_rsa"
+    symmetric = true
+```
+
+## Passphrase Encryption
+
+To use age's symmetric encryption with a passphrase, set `age.passphrase` to `true`:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "age"
+
+[age]
+    passphrase = true
+```
+
+You will be prompted for the passphrase:
+- When running `chezmoi add --encrypt`
+- When chezmoi needs to decrypt files (`apply`, `diff`, `status`)
+
+## Usage Examples
+
+### Encrypting Files
+
+Add an encrypted SSH key:
+
+```bash
+chezmoi add --encrypt ~/.ssh/id_rsa
+```
+
+### Editing Encrypted Files
+
+Edit an encrypted file (automatically decrypts and re-encrypts):
+
+```bash
+chezmoi edit ~/.ssh/id_rsa
+```
+
+### Using Different Keys Per Machine
+
+<CodeGroup>
+```toml Personal Machine
+encryption = "age"
+
+[age]
+    identity = "/home/user/.config/age/personal.key"
+    recipient = "age1personal..."
+```
+
+```toml Work Machine
+encryption = "age"
+
+[age]
+    identity = "/home/user/.config/age/work.key"
+    recipient = "age1work..."
+```
+</CodeGroup>
+
+### Encrypting Specific File Types
+
+<CodeGroup>
+```bash SSH Keys
+chezmoi add --encrypt ~/.ssh/id_rsa
+chezmoi add --encrypt ~/.ssh/id_ed25519
+```
+
+```bash API Tokens
+chezmoi add --encrypt ~/.config/github/token
+chezmoi add --encrypt ~/.aws/credentials
+```
+
+```bash Certificates
+chezmoi add --encrypt ~/.cert/client-key.pem
+chezmoi add --encrypt ~/.config/ssl/private.key
+```
+</CodeGroup>
+
+## Built-in age Encryption
+
+chezmoi has built-in support for age encryption which is automatically used if the `age` command is not found in `$PATH`.
+
+<Note>
+  The built-in age encryption does not support:
+  - Passphrases
+  - Symmetric encryption
+  - SSH keys
+  
+  For these features, install the standalone [age tool](https://github.com/FiloSottile/age).
+</Note>
+
+### Why No Passphrase Support?
+
+Passphrases are not supported in built-in mode because chezmoi needs to decrypt files regularly (e.g., during `chezmoi diff` or `chezmoi status`), not just when running `chezmoi apply`. Prompting for a passphrase each time would quickly become tiresome.
+
+### Why No SSH Key Support?
+
+The [age documentation](https://pkg.go.dev/filippo.io/age#hdr-Key_management) explicitly recommends not using SSH keys:
+
+> When integrating age into a new system, it's recommended that you only support X25519 keys, and not SSH keys. The latter are supported for manual encryption operations.
+
+## Sharing Encrypted Files
+
+To share encrypted files with another user:
+
+1. Get their public age key (recipient)
+2. Add their recipient to your config:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "age"
+
+[age]
+    identity = "/home/user/key.txt"
+    recipients = [
+        "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p",  # Your key
+        "age1p3ty9zvgd4rztpfm5nm0gy6ckhlvvfz8upvfr4zjp7qmq5dyp8tqm87hjp"   # Their key
+    ]
+```
+
+3. Re-encrypt existing files:
+
+```bash
+chezmoi re-add --encrypt
+```
+
+## Troubleshooting
+
+### "failed to decrypt" Error
+
+Ensure your identity file exists and contains the correct private key:
+
+```bash
+cat ~/.config/age/key.txt
+```
+
+### Permission Denied
+
+Check that your identity file has restricted permissions:
+
+```bash
+chmod 600 ~/.config/age/key.txt
+```
+
+### Multiple Recipients Not Working
+
+Verify your config has `recipients` (plural), not `recipient`:
+
+```toml
+[age]
+    recipients = ["age1...", "age2..."]  # ✓ Correct
+    # recipient = "age1..."               # ✗ Wrong for multiple
+```
+
+## Best Practices
+
+1. **Store keys securely**: Keep your identity file outside your chezmoi source directory
+2. **Use different keys per environment**: Personal vs. work machines
+3. **Backup your keys**: Without them, encrypted files cannot be decrypted
+4. **Test decryption**: Verify you can decrypt before removing originals
+5. **Use age over GPG**: age is simpler and more modern for new setups
+
+## See Also
+
+- [age website](https://age-encryption.org/)
+- [age GitHub repository](https://github.com/FiloSottile/age)
+- [Encryption Overview](/encryption/overview)
+- [GPG Encryption](/encryption/gpg)

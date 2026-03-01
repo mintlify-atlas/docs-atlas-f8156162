@@ -1,0 +1,73 @@
+---
+title: Install Script
+description: Information about chezmoi's install script generation
+---
+
+chemzoi generates its [install script](https://github.com/twpayne/chezmoi/blob/master/assets/scripts/install.sh) from a single source of truth to ensure consistency and maintainability.
+
+## When to Regenerate
+
+You must run `make generate` if your change includes any of the following:
+
+- Modifications to the install script template
+- Additions or modifications to the list of supported operating systems and architectures
+
+## Regenerating the Install Script
+
+To regenerate all generated files, including the install script:
+
+```sh
+make generate
+```
+
+This command will:
+
+1. Process the install script template
+2. Generate platform-specific installation code
+3. Update all derived files
+
+## Continuous Integration
+
+chemzoi's continuous integration verifies that all generated files are up to date. Changes to generated files should be included in the commit that modifies the source of truth.
+
+## Workflow
+
+When making changes to the install script:
+
+1. Edit the template or configuration that defines the install script
+2. Run `make generate` to update the generated files
+3. Review the changes to ensure they match your expectations
+4. Commit both the source changes and the generated files together
+
+## Template Location
+
+The install script template is located in the chezmoi source tree. The exact location and template engine used may vary, so check the repository structure for the current setup.
+
+## Testing Changes
+
+After regenerating the install script, test it on the target platforms:
+
+```sh
+# Test on current system
+sh -c "$(curl -fsLS get.chezmoi.io)"
+
+# Or test locally
+sh assets/scripts/install.sh
+```
+
+## Supported Platforms
+
+The install script supports a wide range of operating systems and architectures:
+
+- Linux (amd64, arm, arm64, i386, ppc64, ppc64le, riscv64, s390x)
+- macOS (amd64, arm64)
+- FreeBSD (amd64, arm, arm64, i386)
+- OpenBSD (amd64, arm, arm64, i386)
+- Windows (amd64, arm64, i386)
+
+When adding support for new platforms, update the relevant configuration and regenerate the install script.
+
+## See Also
+
+- [Packaging](/developer/packaging) - Guidelines for packaging chezmoi
+- [Releases](/developer/releases) - Release process and automation

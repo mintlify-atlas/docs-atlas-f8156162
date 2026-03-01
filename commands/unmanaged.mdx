@@ -1,0 +1,307 @@
+---
+title: unmanaged  
+description: List the unmanaged files in the destination directory
+---
+
+The `unmanaged` command lists all files in your destination directory (typically your home directory) that are not managed by chezmoi.
+
+## Usage
+
+```bash
+chezmoi unmanaged [path]...
+```
+
+## Description
+
+The `unmanaged` command shows files that exist in your home directory but are not tracked by chezmoi. This is useful for:
+
+- Finding files you might want to add to chezmoi
+- Identifying files that should be in `.chezmoiignore`
+- Cleaning up temporary or unnecessary files
+- Auditing your dotfile coverage
+
+Files listed in `.chezmoiignore` are not shown as unmanaged.
+
+## Flags
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-0, --nul-path-separator" type="boolean" default="false">
+  Use NUL character as path separator. Useful for piping to `xargs -0`.
+</ParamField>
+
+<ParamField path="-p, --path-style" type="string" default="relative">
+  Path style to use. Options:
+  - `relative` - Paths relative to home directory
+  - `absolute` - Absolute paths
+</ParamField>
+
+<ParamField path="-t, --tree" type="boolean" default="false">
+  Print paths as a tree structure.
+</ParamField>
+
+## Examples
+
+### List all unmanaged files
+
+```bash
+chezmoi unmanaged
+```
+
+Output:
+```
+.bash_history
+.cache
+.local/bin/custom-script
+Downloads
+Documents
+```
+
+### List with absolute paths
+
+```bash
+chezmoi unmanaged --path-style=absolute
+```
+
+Output:
+```
+/home/john/.bash_history
+/home/john/.cache
+/home/john/.local/bin/custom-script
+/home/john/Downloads
+/home/john/Documents
+```
+
+### List in tree format
+
+```bash
+chezmoi unmanaged --tree
+```
+
+Output:
+```
+.
+├── .bash_history
+├── .cache
+├── .local
+│   └── bin
+│       └── custom-script
+├── Documents
+└── Downloads
+```
+
+### List unmanaged files in a specific directory
+
+```bash
+chezmoi unmanaged ~/.config
+```
+
+Shows unmanaged files only within `~/.config`.
+
+### List only unmanaged regular files
+
+```bash
+chezmoi unmanaged --include=files
+```
+
+Excludes directories and symlinks.
+
+### Use with xargs
+
+```bash
+chezmoi unmanaged --nul-path-separator | xargs -0 ls -lh
+```
+
+Safely pass unmanaged files to other commands.
+
+## Common Workflows
+
+### Find dotfiles to add
+
+Find configuration files that aren't managed:
+
+```bash
+chezmoi unmanaged | grep "^\."
+```
+
+Output:
+```
+.bashrc-backup
+.custom-config
+.local-settings
+```
+
+### Add important unmanaged files
+
+```bash
+# Find important configs
+chezmoi unmanaged | grep -E "\.(bash|zsh|vim)rc"
+
+# Add them
+chezmoi add ~/.custom-bashrc
+```
+
+### Identify files to ignore
+
+Find files that should be in `.chezmoiignore`:
+
+```bash
+# Check for temporary or cache files
+chezmoi unmanaged | grep -E "\.(log|cache|tmp)"
+
+# Add to .chezmoiignore
+echo ".*.log" >> ~/.local/share/chezmoi/.chezmoiignore
+```
+
+### Clean up unmanaged files
+
+```bash
+# Review unmanaged files
+chezmoi unmanaged --tree
+
+# Remove temporary files
+chezmoi unmanaged | grep -E "\.(tmp|bak|old)$" | xargs rm
+```
+
+## Output Examples
+
+### Default output
+
+```bash
+$ chezmoi unmanaged
+.bash_history
+.cache
+.lesshst
+.viminfo  
+Downloads
+```
+
+### Tree view
+
+```bash
+$ chezmoi unmanaged --tree
+.
+├── .bash_history
+├── .cache
+│   ├── mozilla
+│   └── pip
+├── .lesshst
+├── .viminfo
+└── Downloads
+    └── file.zip
+```
+
+### In specific directory
+
+```bash
+$ chezmoi unmanaged ~/.config
+.config/Slack
+.config/discord  
+.config/spotify
+```
+
+## Filtering Examples
+
+### Find large unmanaged files
+
+```bash
+chezmoi unmanaged --path-style=absolute --include=files | \
+  xargs du -h | \
+  sort -rh | \
+  head -20
+```
+
+### Find unmanaged config files
+
+```bash
+chezmoi unmanaged ~/.config --include=files
+```
+
+### Count unmanaged files
+
+```bash
+chezmoi unmanaged | wc -l
+```
+
+## Understanding `.chezmoiignore`
+
+Files matching patterns in `.chezmoiignore` won't appear in `unmanaged` output:
+
+```bash
+# ~/.local/share/chezmoi/.chezmoiignore
+.bash_history
+.cache/
+*.log
+*.tmp
+Downloads/
+Documents/
+```
+
+After adding this, those files won't show up:
+
+```bash
+$ chezmoi unmanaged
+# Only shows files not in .chezmoiignore
+```
+
+## Practical Examples
+
+### Audit dotfile coverage
+
+Check which config files aren't managed:
+
+```bash
+#!/bin/bash
+echo "Unmanaged dotfiles:"
+chezmoi unmanaged | grep "^\."
+
+echo "\nManaged dotfiles:"
+chezmoi managed | grep "^\."
+```
+
+### Find unmanaged scripts
+
+```bash
+chezmoi unmanaged ~/.local/bin --include=files
+```
+
+### Generate ignore patterns
+
+Create `.chezmoiignore` entries from unmanaged files:
+
+```bash
+chezmoi unmanaged | grep -E "\.(cache|log|tmp)" > /tmp/to-ignore.txt
+```
+
+### Interactive file addition
+
+```bash
+#!/bin/bash
+for file in $(chezmoi unmanaged | grep "^\."); do
+    echo "Add $file to chezmoi? (y/n)"
+    read -r response
+    if [ "$response" = "y" ]; then
+        chezmoi add ~/$file
+    fi
+done
+```
+
+## Performance Note
+
+The `unmanaged` command may be slow on home directories with many files. To speed it up:
+
+1. Add common directories to `.chezmoiignore` (Downloads, Documents, etc.)
+2. Specify a subdirectory: `chezmoi unmanaged ~/.config`
+3. Exclude file types: `chezmoi unmanaged --exclude=dirs`
+
+## Related Commands
+
+- [managed](/commands/managed) - List managed files
+- [add](/commands/add) - Add unmanaged files to chezmoi
+- [status](/commands/status) - Show status of managed files

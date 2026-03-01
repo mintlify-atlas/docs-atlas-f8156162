@@ -1,0 +1,189 @@
+---
+title: Source State Attributes
+description: File naming conventions and attributes in chezmoi's source directory
+---
+
+# Source State Attributes
+
+chezmoi stores the source state of files, symbolic links, and directories in regular files and directories in the source directory (`~/.local/share/chezmoi` by default). This location can be overridden with the `-S` flag or by setting `sourceDir` in the configuration file.
+
+Directory targets are represented as directories in the source state. All other target types are represented as files in the source state. Some state is encoded in the source file names using prefixes and suffixes.
+
+Attributes can be changed by renaming the file in the source state or with the `chattr` command.
+
+## Attribute Prefixes
+
+The following prefixes are special and control how chezmoi processes files:
+
+| Prefix | Effect |
+|--------|--------|
+| `after_` | Run script after updating the destination |
+| `before_` | Run script before updating the destination |
+| `create_` | Ensure that the file exists, and create it with contents if it does not |
+| `dot_` | Rename to use a leading dot, e.g. `dot_foo` becomes `.foo` |
+| `empty_` | Ensure the file exists, even if it is empty. By default, empty files are removed |
+| `encrypted_` | Encrypt the file in the source state |
+| `external_` | Ignore attributes in child entries |
+| `exact_` | Remove anything not managed by chezmoi |
+| `executable_` | Add executable permissions to the target file |
+| `literal_` | Stop parsing prefix attributes |
+| `modify_` | Treat the contents as a script that modifies an existing file |
+| `once_` | Only run the script if its contents have not been run successfully before |
+| `onchange_` | Only run the script if its contents have changed |
+| `private_` | Remove all group and world permissions from the target file or directory |
+| `readonly_` | Remove all write permissions from the target file or directory |
+| `remove_` | Remove the file or symlink if it exists or the directory if it is empty |
+| `run_` | Treat the contents as a script to run |
+| `symlink_` | Create a symlink instead of a regular file |
+
+## Attribute Suffixes
+
+| Suffix | Effect |
+|--------|--------|
+| `.literal` | Stop parsing suffix attributes |
+| `.tmpl` | Treat the contents of the source file as a template |
+
+## Allowed Attributes by Target Type
+
+Different target types allow different prefixes and suffixes. The order of prefixes is important.
+
+### Directory
+
+- **Source type**: Directory
+- **Allowed prefixes** (in order): `remove_`, `external_`, `exact_`, `private_`, `readonly_`, `dot_`
+- **Allowed suffixes**: *none*
+
+### Regular File
+
+- **Source type**: File
+- **Allowed prefixes** (in order): `encrypted_`, `private_`, `readonly_`, `empty_`, `executable_`, `dot_`
+- **Allowed suffixes**: `.tmpl`
+
+### Create File
+
+- **Source type**: File
+- **Allowed prefixes** (in order): `create_`, `encrypted_`, `private_`, `readonly_`, `empty_`, `executable_`, `dot_`
+- **Allowed suffixes**: `.tmpl`
+
+### Modify File
+
+- **Source type**: File  
+- **Allowed prefixes** (in order): `modify_`, `encrypted_`, `private_`, `readonly_`, `executable_`, `dot_`
+- **Allowed suffixes**: `.tmpl`
+
+### Remove Entry
+
+- **Source type**: File
+- **Allowed prefixes** (in order): `remove_`, `dot_`
+- **Allowed suffixes**: *none*
+
+### Script
+
+- **Source type**: File
+- **Allowed prefixes** (in order): `run_`, `once_` or `onchange_`, `before_` or `after_`
+- **Allowed suffixes**: `.tmpl`
+
+### Symbolic Link
+
+- **Source type**: File
+- **Allowed prefixes** (in order): `symlink_`, `dot_`
+- **Allowed suffixes**: `.tmpl`
+
+## Special Attribute Handling
+
+The `literal_` prefix and `.literal` suffix can appear anywhere and stop attribute parsing. This permits filenames that would otherwise conflict with chezmoi's attributes to be represented.
+
+In addition, if the source file is encrypted, the suffix `.age` (when age encryption is used) or `.asc` (when gpg encryption is used) is stripped. These suffixes can be overridden with the `age.suffix` and `gpg.suffix` configuration variables.
+
+chezmoi ignores all files and directories in the source directory that begin with a `.` with the exception of files and directories that begin with `.chezmoi`.
+
+## Examples
+
+### Basic File Attributes
+
+```bash
+# Regular file with dot prefix
+dot_bashrc          # Target: ~/.bashrc
+
+# Executable file
+executable_dot_bin  # Target: ~/.bin (with +x permission)
+
+# Private file (no group/world permissions)
+private_dot_ssh_config  # Target: ~/.ssh/config (mode 0600)
+
+# Template file
+dot_gitconfig.tmpl  # Target: ~/.gitconfig (processed as template)
+```
+
+### Script Attributes
+
+```bash
+# Run once script
+run_once_install-packages.sh
+
+# Run on change script
+run_onchange_update-brew.sh
+
+# Run before applying
+run_before_backup.sh
+
+# Run after applying
+run_after_restart-services.sh
+```
+
+### Directory Attributes
+
+```bash
+# Exact directory (remove unmanaged files)
+exact_dot_config
+
+# Private directory
+private_dot_ssh
+
+# Combination
+exact_private_dot_gnupg
+```
+
+### Advanced Attributes
+
+```bash
+# Create file (don't overwrite if exists)
+create_dot_local_share_file
+
+# Modify file (script that modifies existing file)
+modify_dot_bashrc.tmpl
+
+# Encrypted file
+encrypted_private_dot_ssh_id_rsa.age
+
+# Symlink
+symlink_dot_vimrc
+
+# Remove entry
+remove_dot_oldconfig
+```
+
+### Literal Attributes
+
+```bash
+# File literally named "executable_script" (not executable)
+literal_executable_script
+
+# File named ".tmpl" (not a template)
+dot_tmpl.literal
+```
+
+## Order of Operations
+
+Attributes are processed in a specific order:
+
+1. `literal_` prefix or `.literal` suffix stops all attribute parsing
+2. Encryption suffixes (`.age`, `.asc`) are removed
+3. Prefixes are processed left to right in the allowed order for that target type
+4. The `.tmpl` suffix is processed last
+
+## Related Pages
+
+- [Target Types](/reference/target-types) - How different target types work
+- [Special Files and Directories](/reference/special-files-and-directories) - Special files in source directory
+- `chattr` command - Change attributes of files

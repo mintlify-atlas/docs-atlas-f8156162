@@ -1,0 +1,168 @@
+---
+title: diff
+description: Show differences between the target state and the destination state
+---
+
+The `diff` command displays the differences between your target state (what chezmoi wants to apply) and the destination state (your current files) for specified targets.
+
+## Usage
+
+```bash
+chezmoi diff [target]...
+```
+
+## Description
+
+The `diff` command shows what changes would be made by `chezmoi apply` without actually making those changes. If no targets are specified, it shows differences for all managed files.
+
+If a `diff.pager` command is set in the configuration file, the output will be piped to it (e.g., `less`).
+
+## Custom Diff Commands
+
+If `diff.command` is set, chezmoi will invoke it to show individual file differences. Each element of `diff.args` is interpreted as a template with variables:
+
+- `.Destination` - Path to the file in the destination state
+- `.Target` - Path to the file in the target state
+
+Default value of `diff.args` is `["{{ .Destination }}", "{{ .Target }}"]`. If `diff.args` doesn't contain template arguments, these will be appended automatically.
+
+## Flags
+
+<ParamField path="--pager" type="string">
+  Pager to use for output (e.g., `less`, `more`). Can be configured via `diff.pager` in the config file.
+</ParamField>
+
+<ParamField path="--reverse" type="boolean" default="false">
+  Reverse the direction of the diff, i.e., show the changes to the target required to match the destination. Can be configured via `diff.reverse` in the config file.
+</ParamField>
+
+<ParamField path="--script-contents" type="boolean" default="true">
+  Show script contents in the diff.
+</ParamField>
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="--init" type="boolean" default="false">
+  Recreate the config file from the template in the source directory.
+</ParamField>
+
+<ParamField path="-P, --parent-dirs" type="boolean" default="false">
+  Show differences for all parent directories.
+</ParamField>
+
+<ParamField path="-r, --recursive" type="boolean" default="false">
+  Recurse into subdirectories.
+</ParamField>
+
+## Configuration
+
+Configure diff behavior in your config file:
+
+```toml
+[diff]
+    pager = "less"
+    command = "diff"
+    args = ["--color=always", "{{ .Destination }}", "{{ .Target }}"]
+```
+
+Using a custom diff tool:
+
+```toml
+[diff]
+    command = "delta"
+    args = ["{{ .Destination }}", "{{ .Target }}"]
+```
+
+## Examples
+
+### Show all differences
+
+```bash
+chezmoi diff
+```
+
+### Show differences for a specific file
+
+```bash
+chezmoi diff ~/.bashrc
+```
+
+### Use a custom pager
+
+```bash
+chezmoi diff --pager "less -R"
+```
+
+### Show reverse diff
+
+```bash
+chezmoi diff --reverse
+```
+
+Shows what changes are needed in the source state to match the destination.
+
+### Diff with syntax highlighting
+
+```bash
+chezmoi diff | delta
+```
+
+Pipe the output to `delta` or another diff viewer.
+
+## Terminal Output
+
+Standard unified diff format:
+
+```diff
+$ chezmoi diff
+diff --git a/home/.bashrc b/home/.bashrc
+index abc1234..def5678 100644
+--- a/home/.bashrc
++++ b/home/.bashrc
+@@ -10,7 +10,7 @@
+ # Environment variables
+-export EDITOR=vim
++export EDITOR=nvim
+ export PATH="$HOME/bin:$PATH"
+```
+
+## Use Cases
+
+### Before applying changes
+
+```bash
+chezmoi diff
+chezmoi apply
+```
+
+Review changes before applying them.
+
+### After making local changes
+
+```bash
+chezmoi diff
+```
+
+See how your local files differ from the source state.
+
+### After updating from repository
+
+```bash
+chezmoi update --apply=false
+chezmoi diff
+chezmoi apply
+```
+
+Pull changes, review them, then apply.
+
+## Related Commands
+
+- [apply](/commands/apply) - Apply the changes shown by diff
+- [status](/commands/status) - Show a concise status of changes
+- [merge](/commands/merge) - Perform three-way merges for conflicts

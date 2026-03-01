@@ -1,0 +1,558 @@
+---
+title: Customize chezmoi
+description: Advanced customization options for chezmoi's behavior and structure
+---
+
+This guide covers advanced customization options for chezmoi, including customizing the source directory structure, using alternative version control systems, and configuring various behaviors.
+
+## Customize Source Directory Structure
+
+### Use a Subdirectory as Source Root
+
+By default, chezmoi uses the root of your dotfiles repository as the source state root. If your repository root contains many files (like README, LICENSE, scripts, etc.), you can keep your home directory cleaner by using a subdirectory.
+
+Create a `.chezmoiroot` file in your source directory:
+
+```text title="~/.local/share/chezmoi/.chezmoiroot"
+home
+```
+
+This tells chezmoi to read the source state from the `home/` subdirectory. Your directory structure becomes:
+
+```
+~/.local/share/chezmoi/
+├── .chezmoiroot          # Contains "home"
+├── README.md             # Not managed by chezmoi
+├── LICENSE               # Not managed by chezmoi
+├── scripts/              # Not managed by chezmoi
+└── home/                 # This is the source state root
+    ├── .chezmoi.toml.tmpl
+    ├── dot_bashrc
+    ├── dot_gitconfig
+    └── dot_config/
+        └── ...
+```
+
+With this setup:
+- `~/.gitconfig` is sourced from `home/dot_gitconfig` (not `dot_gitconfig`)
+- Files in the repository root (like README.md) don't clutter your home directory
+- You don't need to maintain `.chezmoiignore` for repository metadata files
+
+### Migration Steps
+
+When migrating an existing chezmoi setup to use `.chezmoiroot`:
+
+1. **Create the subdirectory**:
+   ```bash
+   cd ~/.local/share/chezmoi
+   mkdir home
+   ```
+
+2. **Create `.chezmoiroot`**:
+   ```bash
+   echo "home" > .chezmoiroot
+   ```
+
+3. **Move managed files**:
+   ```bash
+   # Move dotfiles
+   mv dot_* home/
+   
+   # Move special files
+   mv .chezmoi.* home/
+   
+   # Move directories
+   mv private_* exact_* home/
+   ```
+
+4. **Update `.chezmoiignore`** (if you have one):
+   ```bash
+   mv .chezmoiignore home/
+   # Edit home/.chezmoiignore to remove entries for repo files
+   ```
+
+5. **Test the changes**:
+   ```bash
+   chezmoi diff
+   ```
+
+6. **Commit**:
+   ```bash
+   git add .
+   git commit -m "Reorganize using .chezmoiroot"
+   ```
+
+## Use Alternative Version Control Systems
+
+While chezmoi is designed to work with git, you can use other version control systems like Fossil, Pijul, or Mercurial.
+
+### Where chezmoi Uses Git
+
+chezmoi uses git in only three places:
+
+1. **`chezmoi init`** - Uses `git clone` to clone your dotfiles repo
+2. **`chezmoi update`** - Uses `git pull` to fetch changes
+3. **Auto-commit/push** - Uses `git status`, `git add`, `git commit`, and `git push`
+
+### Git-Compatible VCS
+
+If your VCS is git-compatible (same CLI), configure it:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[git]
+    command = "gitoxide"  # or your git-compatible command
+
+useBuiltinGit = false
+```
+
+### Non-Git VCS Setup
+
+For VCS systems that aren't git-compatible:
+
+#### 1. Manual Clone
+
+Create the source directory manually:
+
+```bash
+# Example with Fossil
+fossil clone https://dotfiles.example.com/repo dotfiles.fossil
+mkdir -p ~/.local/share/chezmoi/.git
+cd ~/.local/share/chezmoi
+fossil open ~/dotfiles.fossil
+chezmoi init --apply
+```
+
+**Note:** The empty `.git` directory is required for chezmoi to identify the working tree.
+
+#### 2. Configure Updates
+
+Tell chezmoi how to update:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[update]
+    command = "fossil"
+    args = ["update"]
+```
+
+Now `chezmoi update` will use `fossil update` instead of `git pull`.
+
+#### 3. Manual Commits
+
+Auto-commit/push features won't work with non-git VCS. Commit manually:
+
+```bash
+chezmoi cd
+fossil add .
+fossil commit -m "Update dotfiles"
+fossil push
+```
+
+### Example: Using Fossil
+
+Complete setup for Fossil:
+
+```bash
+# Initial setup
+fossil clone https://example.com/dotfiles.fossil ~/dotfiles.fossil
+mkdir -p ~/.local/share/chezmoi/.git
+cd ~/.local/share/chezmoi
+fossil open ~/dotfiles.fossil
+```
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[update]
+    command = "fossil"
+    args = ["update"]
+```
+
+```bash
+# Update workflow
+chezmoi update  # Runs 'fossil update'
+
+# Commit workflow
+chezmoi cd
+fossil add .
+fossil commit
+```
+
+### Example: Using Pijul
+
+```bash
+# Initial setup
+cd ~/.local/share/chezmoi
+pijul clone https://nest.pijul.com/user/dotfiles .
+mkdir .git  # Required for chezmoi
+```
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[update]
+    command = "pijul"
+    args = ["pull"]
+```
+
+## Customize Git Behavior
+
+### Auto-Commit and Auto-Push
+
+Automatically commit and push changes:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[git]
+    autoCommit = true
+    autoPush = true
+```
+
+Now when you run `chezmoi add`, `chezmoi edit`, etc., changes are automatically committed and pushed.
+
+### Custom Commit Messages
+
+Template your commit messages:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[git]
+    autoCommit = true
+    commitMessageTemplate = "{{ .commitMessage }} on {{ .chezmoi.hostname }}"
+```
+
+### Use External Git
+
+Force chezmoi to use external git (not built-in):
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+useBuiltinGit = false
+
+[git]
+    command = "git"
+```
+
+Useful if you need git hooks or specific git configurations.
+
+## Directory and File Locations
+
+### Custom Source Directory
+
+Change where chezmoi stores the source state:
+
+```bash
+chezmoi init --source=/custom/path
+```
+
+Or set permanently:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+sourceDir = "/custom/path"
+```
+
+### Custom Destination Directory
+
+Manage files outside your home directory (discouraged for dotfiles):
+
+```bash
+chezmoi apply --destination=/opt/myapp
+```
+
+Or:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+destDir = "/opt/myapp"
+```
+
+### Custom Config File Location
+
+```bash
+chezmoi apply --config=/custom/config.toml
+```
+
+### Custom Cache Directory
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+cacheDir = "/custom/cache/dir"
+```
+
+## Script Behavior
+
+### Script Environment Variables
+
+Inject data into scripts via environment variables:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[scriptEnv]
+    MY_VAR = "value"
+    ANOTHER_VAR = "{{ .chezmoi.hostname }}"
+```
+
+Access in scripts:
+
+```bash title="run_onchange_setup.sh"
+#!/bin/bash
+echo "Running on $MY_VAR"
+echo "Hostname: $ANOTHER_VAR"
+```
+
+### Custom Script Interpreter
+
+Override interpreters for script extensions:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[interpreters.py]
+    command = "python3.11"
+    args = ["-u"]
+
+[interpreters.sh]
+    command = "bash"
+    args = ["-euo", "pipefail"]
+```
+
+### Script Temporary Directory
+
+Change where chezmoi writes temporary script files:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+scriptTempDir = "~/tmp"
+```
+
+Useful if `/tmp` is mounted with `noexec`.
+
+## Template Customization
+
+### Custom Template Delimiters
+
+Avoid conflicts with other templating systems:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[template]
+    leftDelimiter = "[["
+    rightDelimiter = "]]"
+```
+
+Now use `[[ .chezmoi.os ]]` instead of `{{ .chezmoi.os }}`.
+
+### Template Functions
+
+Define custom template functions:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[template]
+    options = ["missingkey=error"]
+```
+
+Options:
+- `missingkey=error` - Error on undefined variables (default: zero value)
+- `missingkey=zero` - Use zero value for undefined variables
+- `missingkey=invalid` - Template execution stops immediately
+
+## File Permissions
+
+### Custom Umask
+
+Set a global umask for all managed files:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+umask = 0o022
+```
+
+This prevents group-writeable files (e.g., for SSH config).
+
+### Per-File Permissions
+
+Use filename attributes:
+
+```bash
+# Read-only file
+chezmoi add --template readonly_dot_file
+
+# Private file (0600)
+chezmoi add --template private_dot_ssh_config
+
+# Executable file (0755)
+chezmoi add --template executable_dot_local_bin_script
+```
+
+## Encryption
+
+### Configure Age Encryption
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[age]
+    identity = "~/.config/chezmoi/key.txt"
+    recipient = "age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+### Configure GPG Encryption
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[gpg]
+    recipient = "your@email.com"
+    symmetric = false
+```
+
+### Transparent Encryption
+
+Keep encrypted files in the source but edit them transparently:
+
+```bash
+# Add encrypted file
+chezmoi add --encrypt ~/.ssh/config
+
+# Edit (automatically decrypts/re-encrypts)
+chezmoi edit ~/.ssh/config
+```
+
+## Hooks
+
+Run commands before or after chezmoi operations:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[hooks.read-source-state.pre]
+    command = "./scripts/pre-hook.sh"
+
+[hooks.read-source-state.post]
+    command = "./scripts/post-hook.sh"
+```
+
+Available hooks:
+- `read-source-state.pre` / `read-source-state.post`
+
+## Warnings
+
+Disable specific warnings:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[warnings]
+    configFileTemplateHasChangedExternally = false
+```
+
+## Working with Multiple Machines
+
+### Machine-Specific Source Directories
+
+You can use different source directories on different machines by passing `--source` or `--config`:
+
+```bash
+# On work machine
+chezmoi apply --config ~/.config/chezmoi-work/chezmoi.toml
+
+# On personal machine
+chezmoi apply --config ~/.config/chezmoi-personal/chezmoi.toml
+```
+
+Wrap in a shell function:
+
+```bash
+function cm-all() {
+    chezmoi apply --config ~/.config/chezmoi-work/chezmoi.toml \
+                  --source ~/.local/share/chezmoi-work && \
+    chezmoi apply --config ~/.config/chezmoi-personal/chezmoi.toml \
+                  --source ~/.local/share/chezmoi-personal
+}
+```
+
+### Nested chezmoi
+
+Run a second instance of chezmoi from within a script:
+
+```bash title="run_after_rootmoi.sh"
+#!/bin/bash
+# Manage system files with a separate chezmoi instance
+sudo -u root chezmoi apply --source /root/.local/share/chezmoi
+```
+
+See [felipecrs/dotfiles rootmoi example](https://github.com/felipecrs/dotfiles/blob/master/home/.chezmoiscripts/run_after_20-run-rootmoi.sh.tmpl).
+
+## Symlink Mode
+
+Make chezmoi use symlinks where possible:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+mode = "symlink"
+```
+
+**Limitations:**
+- Symlinks cannot be used for encrypted files
+- Symlinks cannot be used for executable files
+- Symlinks cannot be used for private files
+- Symlinks cannot be used for templates
+- Symlinks cannot be used for entire directories
+
+## Advanced Configuration Examples
+
+### Minimal Container Configuration
+
+```toml title="~/.config/chezmoi/chezmoi.toml.tmpl"
+{{- $isContainer := or (stat "/run/.containerenv") (stat "/.dockerenv") -}}
+
+{{- if $isContainer }}
+# Minimal config for containers
+pager = ""
+verbose = false
+{{- end }}
+```
+
+### Multi-Environment Setup
+
+```toml title="~/.config/chezmoi/chezmoi.toml.tmpl"
+{{- $workMachine := promptBool "work machine" -}}
+
+{{- if $workMachine }}
+[git]
+    autoCommit = false  # Don't auto-commit on work machine
+[http]
+    proxy = "http://proxy.work.com:8080"
+{{- else }}
+[git]
+    autoCommit = true
+    autoPush = true
+{{- end }}
+```
+
+### Debug Mode Configuration
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+# Uncomment for debugging
+# verbose = true
+# [template]
+#     options = ["missingkey=error"]
+```
+
+## Best Practices
+
+1. **Use `.chezmoiroot`** for cleaner repositories
+2. **Commit your config file template** (`.chezmoi.toml.tmpl`) not the generated config
+3. **Document your customizations** with comments in your config
+4. **Test on all machines** before committing major changes
+5. **Use templates for machine-specific paths** instead of hardcoding
+6. **Keep auto-commit off** until you're confident in your setup
+
+## Troubleshooting
+
+### Config File Not Found
+
+Check the config search path:
+
+```bash
+chezmoi doctor
+```
+
+### Source Directory Issues
+
+Verify your source directory:
+
+```bash
+chezmoi source-path
+```
+
+### Git Integration Problems
+
+Test git commands:
+
+```bash
+chezmoi cd
+git status
+```
+
+### VCS Integration
+
+For non-git VCS, ensure:
+1. Empty `.git` directory exists in source directory
+2. `update.command` is configured correctly
+3. You commit changes manually

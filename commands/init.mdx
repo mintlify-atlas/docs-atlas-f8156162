@@ -1,0 +1,154 @@
+---
+title: init
+description: Setup the source directory and update the destination directory to match the target state
+---
+
+The `init` command sets up the source directory, optionally clones a repository, generates the config file, and optionally applies the changes to your system.
+
+## Usage
+
+```bash
+chezmoi init [repo]
+```
+
+## Description
+
+The `init` command performs the following steps in order:
+
+1. **Initialize the source directory** - If chezmoi does not detect a Git repository in the source directory, chezmoi will clone the provided `repo` into the source directory. If no `repo` is provided, chezmoi will initialize a new Git repository.
+
+2. **Generate config file** - If the initialized source directory contains a `.chezmoi.$FORMAT.tmpl` file, a new configuration file will be created using that file as a template.
+
+3. **Apply changes** (if `--apply` is set) - Run `chezmoi apply` to update the destination directory.
+
+4. **Purge** (if `--purge` is set) - Remove the source, config, and cache directories.
+
+5. **Purge binary** (if `--purge-binary` is set) - Attempt to remove the chezmoi binary itself.
+
+## Repository URL Guessing
+
+By default, if a repo argument is given, chezmoi will guess the full git repo URL using HTTPS (or SSH with `--ssh`), according to these patterns:
+
+| Pattern | HTTPS Repo | SSH Repo |
+| --- | --- | --- |
+| `user` | `https://github.com/user/dotfiles.git` | `git@github.com:user/dotfiles.git` |
+| `user/repo` | `https://github.com/user/repo.git` | `git@github.com:user/repo.git` |
+| `site/user/repo` | `https://site/user/repo.git` | `git@site:user/repo.git` |
+| `sr.ht/~user` | `https://git.sr.ht/~user/dotfiles` | `git@git.sr.ht:~user/dotfiles` |
+| `sr.ht/~user/repo` | `https://git.sr.ht/~user/repo` | `git@git.sr.ht:~user/repo` |
+
+To disable URL guessing, use `--guess-repo-url=false`.
+
+## Flags
+
+<ParamField path="-a, --apply" type="boolean" default="false">
+  Run `chezmoi apply` after checking out the repo and creating the config file.
+</ParamField>
+
+<ParamField path="--branch" type="string">
+  Check out the specified branch instead of the default branch.
+</ParamField>
+
+<ParamField path="-C, --config-path" type="path">
+  Write the generated config file to the specified path instead of the default location.
+</ParamField>
+
+<ParamField path="--data" type="boolean" default="true">
+  Include existing template data when creating the config file. Set to `false` to simulate creating the config file with no existing template data.
+</ParamField>
+
+<ParamField path="-d, --depth" type="integer">
+  Clone the repo with the specified depth (creates a shallow clone).
+</ParamField>
+
+<ParamField path="--git-lfs" type="boolean" default="false">
+  Run `git lfs pull` after cloning the repo.
+</ParamField>
+
+<ParamField path="-g, --guess-repo-url" type="boolean" default="true">
+  Guess the repo URL from the repo argument.
+</ParamField>
+
+<ParamField path="--one-shot" type="boolean" default="false">
+  Equivalent to `--apply --depth=1 --force --purge --purge-binary`. Attempts to install your dotfiles with chezmoi and then remove all traces of chezmoi from the system. Useful for temporary environments like Docker containers.
+</ParamField>
+
+<ParamField path="-p, --purge" type="boolean" default="false">
+  Remove the source and config directories after applying.
+</ParamField>
+
+<ParamField path="-P, --purge-binary" type="boolean" default="false">
+  Attempt to remove the chezmoi binary after applying.
+</ParamField>
+
+<ParamField path="--recurse-submodules" type="boolean" default="true">
+  Recursively clone submodules.
+</ParamField>
+
+<ParamField path="--ssh" type="boolean" default="false">
+  Guess an SSH repo URL instead of an HTTPS repo URL.
+</ParamField>
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+## Examples
+
+### Initialize from a GitHub user's dotfiles repository
+
+```bash
+chezmoi init username
+```
+
+### Initialize and apply immediately
+
+```bash
+chezmoi init username --apply
+```
+
+### Initialize and purge afterwards
+
+```bash
+chezmoi init username --apply --purge
+```
+
+### Initialize from a specific repository
+
+```bash
+chezmoi init user/dots
+```
+
+### Initialize from GitLab or other providers
+
+```bash
+chezmoi init gitlab.com/user
+chezmoi init codeberg.org/user
+```
+
+### One-shot mode for Docker containers
+
+```bash
+chezmoi init username --one-shot
+```
+
+This will clone your dotfiles, apply them, and remove chezmoi completely.
+
+## Notes
+
+<Warning>
+If you're using a different version control system (not Git), you'll need to manually create the source directory structure. To prevent chezmoi from trying to clone or create a Git repository, add an empty `.git` directory:
+
+```bash
+mkdir -p ~/.local/share/chezmoi/.git
+```
+</Warning>
+
+## Related Commands
+
+- [apply](/commands/apply) - Apply changes after initialization
+- [update](/commands/update) - Pull and apply changes from the repository

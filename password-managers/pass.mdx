@@ -1,0 +1,451 @@
+---
+title: pass (Password Store)
+description: Integrate pass with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [pass](https://www.passwordstore.org/), the standard Unix password manager, using the pass CLI.
+
+## Setup
+
+### Install pass
+
+<CodeGroup>
+```bash macOS
+brew install pass
+```
+
+```bash Ubuntu/Debian
+sudo apt install pass
+```
+
+```bash Fedora
+sudo dnf install pass
+```
+
+```bash Arch
+sudo pacman -S pass
+```
+</CodeGroup>
+
+### Initialize pass
+
+If you haven't set up pass yet:
+
+```bash
+# Initialize with your GPG key
+pass init your-gpg-id@example.com
+
+# Or initialize with a specific GPG key ID
+pass init 0x1234567890ABCDEF
+```
+
+### Add Passwords
+
+```bash
+# Add a password
+pass insert github/token
+
+# Generate a random password
+pass generate aws/secret-key 32
+
+# Add multiline data
+pass insert -m ssh/private-key
+```
+
+## Template Functions
+
+### `pass`
+
+Get the first line from a password entry:
+
+```text
+{{ pass "github/token" }}
+```
+
+This runs `pass show github/token` and returns the first line.
+
+### `passFields`
+
+Get structured data from a password entry with key-value pairs:
+
+```text
+{{ (passFields "aws/credentials").access_key_id }}
+```
+
+This parses the entry as colon-separated key-value pairs.
+
+### `passRaw`
+
+Get the complete raw output from a password entry:
+
+```text
+{{ passRaw "ssh/private-key" }}
+```
+
+Useful for multiline data like SSH keys or certificates.
+
+## Usage Examples
+
+### Simple Passwords
+
+<CodeGroup>
+```text GitHub Token
+# ~/.config/gh/config.yml.tmpl
+github_token: {{ pass "github/token" }}
+```
+
+```text NPM Token
+# ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ pass "npm/token" }}
+```
+
+```text API Key
+# ~/.config/app/config.yml.tmpl
+api_key: {{ pass "service/api-key" }}
+```
+</CodeGroup>
+
+### Git Configuration
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = John Doe
+    email = {{ pass "git/email" }}
+    signingkey = {{ pass "git/signing-key" }}
+
+[github]
+    user = {{ pass "github/username" }}
+
+[credential]
+    helper = store
+```
+
+### SSH Private Keys
+
+Store SSH keys in pass:
+
+```bash
+# Add SSH key to pass
+pass insert -m ssh/id_rsa < ~/.ssh/id_rsa
+```
+
+Use in templates:
+
+```text ~/.ssh/id_rsa.tmpl
+{{ passRaw "ssh/id_rsa" }}
+```
+
+### Structured Data with passFields
+
+Store data as key-value pairs in pass:
+
+```bash
+pass insert -m aws/credentials
+# Then enter:
+access_key_id: AKIAIOSFODNN7EXAMPLE
+secret_access_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+region: us-east-1
+```
+
+Access in templates:
+
+```text ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ (passFields "aws/credentials").access_key_id }}
+aws_secret_access_key = {{ (passFields "aws/credentials").secret_access_key }}
+region = {{ (passFields "aws/credentials").region }}
+```
+
+### Database Credentials
+
+<CodeGroup>
+```bash Store in pass
+# Production database
+pass insert -m db/production
+# Enter:
+host: db.example.com
+port: 5432
+username: app_user
+password: super_secret_password
+database: production_db
+```
+
+```text Use in template
+# ~/.config/db/config.yml.tmpl
+production:
+  host: {{ (passFields "db/production").host }}
+  port: {{ (passFields "db/production").port }}
+  username: {{ (passFields "db/production").username }}
+  password: {{ (passFields "db/production").password }}
+  database: {{ (passFields "db/production").database }}
+```
+</CodeGroup>
+
+### Multiple API Keys
+
+```text ~/.config/api-keys.env.tmpl
+# Cloud Services
+AWS_ACCESS_KEY_ID={{ pass "aws/access-key-id" }}
+AWS_SECRET_ACCESS_KEY={{ pass "aws/secret-access-key" }}
+DIGITALOCEAN_TOKEN={{ pass "digitalocean/token" }}
+
+# Development Tools
+GITHUB_TOKEN={{ pass "github/token" }}
+GITLAB_TOKEN={{ pass "gitlab/token" }}
+OPENAI_API_KEY={{ pass "openai/api-key" }}
+
+# Payment Services
+STRIPE_SECRET_KEY={{ pass "stripe/secret-key" }}
+STRIPE_PUBLISHABLE_KEY={{ pass "stripe/publishable-key" }}
+```
+
+### Docker Registry Credentials
+
+```bash
+# Store Docker Hub credentials
+pass insert docker/username
+pass insert docker/password
+```
+
+```text ~/.docker/config.json.tmpl
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "auth": "{{ printf "%s:%s" (pass "docker/username") (pass "docker/password") | b64enc }}"
+    }
+  }
+}
+```
+
+### Kubernetes Config
+
+```text ~/.kube/config.tmpl
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: {{ pass "kubernetes/server" }}
+    certificate-authority-data: {{ passRaw "kubernetes/ca-cert" | b64enc }}
+  name: production
+contexts:
+- context:
+    cluster: production
+    user: admin
+  name: production
+current-context: production
+users:
+- name: admin
+  user:
+    client-certificate-data: {{ passRaw "kubernetes/client-cert" | b64enc }}
+    client-key-data: {{ passRaw "kubernetes/client-key" | b64enc }}
+```
+
+## Configuration
+
+### Custom Command
+
+If `pass` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[pass]
+    command = "/custom/path/to/pass"
+```
+
+### Custom Password Store Location
+
+By default, pass uses `~/.password-store`. To use a different location:
+
+```bash
+export PASSWORD_STORE_DIR="$HOME/.my-passwords"
+```
+
+Or add to your shell profile:
+
+```bash ~/.bashrc
+export PASSWORD_STORE_DIR="$HOME/.my-passwords"
+```
+
+## Organizing Your Password Store
+
+Use a hierarchical structure:
+
+```
+~/.password-store/
+├── personal/
+│   ├── email/
+│   │   └── gmail
+│   ├── github/
+│   │   ├── token
+│   │   └── username
+│   └── ssh/
+│       └── id_rsa
+├── work/
+│   ├── aws/
+│   │   └── credentials
+│   ├── github/
+│   │   └── token
+│   └── vpn/
+│       └── password
+└── shared/
+    └── wifi/
+        └── home
+```
+
+Access with:
+
+```text
+{{ pass "personal/github/token" }}
+{{ pass "work/aws/credentials" }}
+```
+
+## Advanced Usage
+
+### Using pass with Git
+
+pass can sync with git:
+
+```bash
+# Initialize git in password store
+pass git init
+
+# Add a remote
+pass git remote add origin git@github.com:username/passwords.git
+
+# Push passwords
+pass git push -u origin master
+```
+
+### Team Password Sharing
+
+Initialize pass for multiple GPG keys:
+
+```bash
+pass init key1@example.com key2@example.com
+```
+
+Everyone with these keys can decrypt the passwords.
+
+### Generating Passwords
+
+```bash
+# Generate a 32-character password
+pass generate github/token 32
+
+# Generate without symbols
+pass generate -n aws/secret-key 40
+```
+
+### Editing Passwords
+
+```bash
+# Edit a password entry
+pass edit github/token
+
+# View a password
+pass show github/token
+```
+
+## Complete Examples
+
+### Multi-Service Configuration
+
+```text ~/.config/services.yml.tmpl
+github:
+  username: {{ pass "github/username" }}
+  token: {{ pass "github/token" }}
+  email: {{ pass "github/email" }}
+
+aws:
+  access_key_id: {{ (passFields "aws/credentials").access_key_id }}
+  secret_access_key: {{ (passFields "aws/credentials").secret_access_key }}
+  region: {{ (passFields "aws/credentials").region }}
+
+database:
+  host: {{ (passFields "database/production").host }}
+  port: {{ (passFields "database/production").port }}
+  username: {{ (passFields "database/production").username }}
+  password: {{ (passFields "database/production").password }}
+
+smtp:
+  host: {{ (passFields "email/smtp").host }}
+  port: {{ (passFields "email/smtp").port }}
+  username: {{ (passFields "email/smtp").username }}
+  password: {{ (passFields "email/smtp").password }}
+```
+
+## Troubleshooting
+
+### GPG Key Not Found
+
+Ensure your GPG key is available:
+
+```bash
+gpg --list-secret-keys
+```
+
+If not, import it:
+
+```bash
+gpg --import private-key.asc
+```
+
+### Password Not Found
+
+List all passwords:
+
+```bash
+pass ls
+```
+
+Or search:
+
+```bash
+pass find github
+```
+
+### Command Not Found
+
+Ensure pass is installed:
+
+```bash
+which pass
+pass --version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ pass "test/password" }}'
+```
+
+### GPG Agent Issues
+
+If GPG prompts repeatedly for your password:
+
+```bash
+# Check GPG agent
+gpg-connect-agent /bye
+
+# Restart GPG agent
+gpgconf --kill gpg-agent
+gpgconf --launch gpg-agent
+```
+
+## Best Practices
+
+1. **Use hierarchy**: Organize passwords in logical folders
+2. **Use descriptive names**: Make entry names clear and searchable
+3. **Backup regularly**: Keep encrypted backups of your password store
+4. **Use git**: Sync your password store across machines with git
+5. **Set GPG key expiry**: Use expiring GPG keys for better security
+6. **Use passFields**: Structure complex data as key-value pairs
+7. **Test access**: Verify passwords are accessible before using in templates
+
+## See Also
+
+- [pass Website](https://www.passwordstore.org/)
+- [pass Git Repository](https://git.zx2c4.com/password-store/)
+- [Template Functions Reference](/reference/templates/password-manager-functions#pass)
+- [gopass](/password-managers/gopass) - Extended version of pass

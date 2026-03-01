@@ -1,0 +1,360 @@
+---
+title: Bitwarden
+description: Integrate Bitwarden with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [Bitwarden](https://bitwarden.com/) using the [Bitwarden CLI](https://bitwarden.com/help/cli/) (`bw`), [Bitwarden Secrets CLI](https://bitwarden.com/help/secrets-manager-cli/) (`bws`), and [`rbw`](https://github.com/doy/rbw) to expose data as template functions.
+
+## Bitwarden CLI Setup
+
+### Install
+
+Install the Bitwarden CLI:
+
+```bash
+# macOS
+brew install bitwarden-cli
+
+# Linux/Windows - download from
+# https://bitwarden.com/help/cli/
+```
+
+### Log In
+
+Log in using one of these methods:
+
+<CodeGroup>
+```bash Email
+bw login $BITWARDEN_EMAIL
+```
+
+```bash API Key
+bw login --apikey
+```
+
+```bash SSO
+bw login --sso
+```
+</CodeGroup>
+
+### Unlock
+
+If required, unlock your vault (API key and SSO logins always require an explicit unlock):
+
+```bash
+bw unlock
+```
+
+Set the `BW_SESSION` environment variable as instructed.
+
+### Quick Session Setup
+
+<CodeGroup>
+```bash Already Logged In
+export BW_SESSION=$(bw unlock --raw)
+```
+
+```bash Email Login
+export BW_SESSION=$(bw login $BITWARDEN_EMAIL --raw)
+```
+
+```bash SSO/API Login
+export BW_SESSION=$(bw login --sso && bw unlock --raw)
+```
+</CodeGroup>
+
+## Template Functions
+
+### `bitwarden`
+
+Get structured data from an item:
+
+```text
+username = {{ (bitwarden "item" "example.com").login.username }}
+password = {{ (bitwarden "item" "example.com").login.password }}
+```
+
+This runs `bw get item example.com` and returns parsed JSON.
+
+### `bitwardenFields`
+
+Access custom fields:
+
+```text
+{{ (bitwardenFields "item" "example.com").token.value }}
+```
+
+### `bitwardenAttachment`
+
+Retrieve attachments by item ID:
+
+```text
+{{ bitwardenAttachment "id_rsa" "bf22e4b4-ae4a-4d1c-8c98-ac620004b628" }}
+```
+
+### `bitwardenAttachmentByRef`
+
+Retrieve attachments by item reference:
+
+```text
+{{ bitwardenAttachmentByRef "id_rsa" "item" "example.com" }}
+```
+
+## Usage Examples
+
+### Login Credentials
+
+<CodeGroup>
+```text Git Config
+# ~/.gitconfig.tmpl
+[user]
+    name = {{ (bitwarden "item" "git-config").login.username }}
+    email = {{ (bitwarden "item" "git-config").notes }}
+
+[github]
+    user = {{ (bitwarden "item" "github").login.username }}
+```
+
+```text SSH Config
+# ~/.ssh/config.tmpl
+Host github.com
+    User {{ (bitwarden "item" "github").login.username }}
+    IdentityFile ~/.ssh/id_ed25519
+
+Host gitlab.com
+    User {{ (bitwarden "item" "gitlab").login.username }}
+    IdentityFile ~/.ssh/id_rsa
+```
+</CodeGroup>
+
+### Custom Fields
+
+<CodeGroup>
+```text API Tokens
+# ~/.config/tokens.env.tmpl
+GITHUB_TOKEN={{ (bitwardenFields "item" "github-api").token.value }}
+GITLAB_TOKEN={{ (bitwardenFields "item" "gitlab-api").api_token.value }}
+OPENAI_API_KEY={{ (bitwardenFields "item" "openai").api_key.value }}
+```
+
+```text Database Config
+# ~/.config/db.yml.tmpl
+production:
+  host: {{ (bitwardenFields "item" "prod-db").host.value }}
+  port: {{ (bitwardenFields "item" "prod-db").port.value }}
+  username: {{ (bitwarden "item" "prod-db").login.username }}
+  password: {{ (bitwarden "item" "prod-db").login.password }}
+  database: {{ (bitwardenFields "item" "prod-db").database.value }}
+```
+</CodeGroup>
+
+### Attachments
+
+<CodeGroup>
+```text SSH Key by ID
+# ~/.ssh/work_id_rsa
+{{ bitwardenAttachment "id_rsa" "bf22e4b4-ae4a-4d1c-8c98-ac620004b628" }}
+```
+
+```text SSH Key by Reference
+# ~/.ssh/work_id_rsa
+{{ bitwardenAttachmentByRef "id_rsa" "item" "work-ssh-key" }}
+```
+
+```text Certificate
+# ~/.config/ssl/client.crt
+{{ bitwardenAttachmentByRef "client.crt" "item" "ssl-certificates" }}
+```
+</CodeGroup>
+
+## Configuration
+
+### Automatic Unlock
+
+Enable automatic unlocking if `BW_SESSION` is not set:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[bitwarden]
+    unlock = "auto"
+```
+
+### Custom Command
+
+If `bw` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[bitwarden]
+    command = "/custom/path/to/bw"
+```
+
+## Bitwarden Secrets CLI
+
+The Secrets CLI (`bws`) is for [Bitwarden Secrets Manager](https://bitwarden.com/help/secrets-manager-cli/).
+
+### Setup
+
+1. Generate an [access token](https://bitwarden.com/help/access-tokens/) for a [service account](https://bitwarden.com/help/service-accounts/)
+2. Either set the environment variable or store in config:
+
+<CodeGroup>
+```bash Environment Variable
+export BWS_ACCESS_TOKEN="0.48c78342-1635-48a6-accd-afbe01336365.C0tMmQqHnAp1h0gL8bngprlPOYutt0:B3h5D+YgLvFiQhWkIq6Bow=="
+```
+
+```toml Config File
+# ~/.config/chezmoi/chezmoi.toml
+[data]
+    accessToken = "0.48c78342-1635-48a6-accd-afbe01336365.C0tMmQqHnAp1h0gL8bngprlPOYutt0:B3h5D+YgLvFiQhWkIq6Bow=="
+```
+</CodeGroup>
+
+### `bitwardenSecrets`
+
+Retrieve secrets:
+
+```text
+{{ (bitwardenSecrets "be8e0ad8-d545-4017-a55a-b02f014d4158").value }}
+```
+
+With token from config:
+
+```text
+{{ (bitwardenSecrets "be8e0ad8-d545-4017-a55a-b02f014d4158" .accessToken).value }}
+```
+
+### Usage Examples
+
+<CodeGroup>
+```text Environment Variables
+# ~/.config/secrets.env.tmpl
+API_KEY={{ (bitwardenSecrets "api-key-uuid").value }}
+DB_PASSWORD={{ (bitwardenSecrets "db-password-uuid").value }}
+JWT_SECRET={{ (bitwardenSecrets "jwt-secret-uuid").value }}
+```
+
+```text Application Config
+# ~/.config/app/config.yml.tmpl
+api:
+  key: {{ (bitwardenSecrets "api-key-uuid" .accessToken).value }}
+  endpoint: https://api.example.com
+
+database:
+  password: {{ (bitwardenSecrets "db-password-uuid" .accessToken).value }}
+```
+</CodeGroup>
+
+## Unofficial Alternative: rbw
+
+[rbw](https://github.com/doy/rbw) is an unofficial Bitwarden CLI with better daemon support.
+
+See the [rbw template functions reference](/reference/templates/password-manager-functions#bitwarden) for usage.
+
+## Complete Examples
+
+### AWS Credentials
+
+```text ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ (bitwardenFields "item" "aws-personal").access_key_id.value }}
+aws_secret_access_key = {{ (bitwardenFields "item" "aws-personal").secret_access_key.value }}
+region = {{ (bitwardenFields "item" "aws-personal").region.value }}
+
+[work]
+aws_access_key_id = {{ (bitwardenFields "item" "aws-work").access_key_id.value }}
+aws_secret_access_key = {{ (bitwardenFields "item" "aws-work").secret_access_key.value }}
+region = us-east-1
+```
+
+### NPM Configuration
+
+```text ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ (bitwardenFields "item" "npm").token.value }}
+email={{ (bitwarden "item" "npm").login.username }}
+```
+
+### Multiple API Keys
+
+```text ~/.config/api-keys.sh.tmpl
+#!/bin/bash
+
+# Cloud providers
+export AWS_ACCESS_KEY_ID="{{ (bitwardenFields "item" "aws").access_key_id.value }}"
+export AWS_SECRET_ACCESS_KEY="{{ (bitwardenFields "item" "aws").secret_access_key.value }}"
+export DIGITALOCEAN_TOKEN="{{ (bitwardenFields "item" "digitalocean").token.value }}"
+
+# APIs
+export GITHUB_TOKEN="{{ (bitwardenFields "item" "github").token.value }}"
+export GITLAB_TOKEN="{{ (bitwardenFields "item" "gitlab").token.value }}"
+export OPENAI_API_KEY="{{ (bitwardenFields "item" "openai").api_key.value }}"
+
+# Databases
+export POSTGRES_PASSWORD="{{ (bitwarden "item" "postgres").login.password }}"
+export REDIS_PASSWORD="{{ (bitwarden "item" "redis").login.password }}"
+```
+
+## Troubleshooting
+
+### Session Not Set
+
+If you get "Session key is invalid":
+
+```bash
+export BW_SESSION=$(bw unlock --raw)
+```
+
+### Vault Locked
+
+```bash
+bw unlock
+export BW_SESSION=$(bw unlock --raw)
+```
+
+### Command Not Found
+
+Ensure Bitwarden CLI is installed:
+
+```bash
+which bw
+bw --version
+```
+
+### Item Not Found
+
+Verify the item exists:
+
+```bash
+bw list items --search "example.com"
+```
+
+### Testing Templates
+
+Test your template functions:
+
+```bash
+chezmoi execute-template '{{ (bitwarden "item" "test").login.username }}'
+```
+
+### Enable Auto-Unlock
+
+To avoid manually unlocking:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[bitwarden]
+    unlock = "auto"
+```
+
+## Best Practices
+
+1. **Use auto-unlock**: Set `bitwarden.unlock = "auto"` for convenience
+2. **Organize items**: Use clear naming conventions for items
+3. **Use custom fields**: Store structured data in custom fields
+4. **Session management**: Set `BW_SESSION` in your shell profile
+5. **Test incrementally**: Test templates before adding more complexity
+6. **Use Secrets Manager**: For production/CI/CD, use Bitwarden Secrets Manager
+
+## See Also
+
+- [Bitwarden CLI Documentation](https://bitwarden.com/help/cli/)
+- [Bitwarden Secrets Manager](https://bitwarden.com/help/secrets-manager-cli/)
+- [rbw GitHub](https://github.com/doy/rbw)
+- [Template Functions Reference](/reference/templates/password-manager-functions#bitwarden)

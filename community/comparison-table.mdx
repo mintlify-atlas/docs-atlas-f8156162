@@ -1,0 +1,112 @@
+---
+title: Comparison Table
+description: Feature comparison between chezmoi and other dotfile managers
+---
+
+This table compares chezmoi with other popular dotfile management solutions to help you understand the differences and choose the right tool for your needs.
+
+## Feature Comparison
+
+| Feature | chezmoi | dotbot | rcm | vcsh | yadm | bare git |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Distribution** | Single binary | Python package | Multiple files | Single script or package | Single script | - |
+| **Install method** | Many | git submodule | Many | Many | Many | Manual |
+| **Non-root install on bare system** | ✅ | ⁉️ | ✅ | ✅ | ✅ | ✅ |
+| **Windows support** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
+| **Bootstrap requirements** | None | Python, git | Bash | sh, git | git | git |
+| **Source repos** | Single | Single | Multiple | Multiple | Single | Single |
+| **dotfiles are...** | Files | Symlinks | Symlinks | Files | Files | Files |
+| **Config file** | Optional | Required | Optional | None | Optional | Optional |
+| **Private files** | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Show differences without applying** | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Whole file encryption** | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Password manager integration** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Machine-to-machine file differences** | Templates | Alternative files | Alternative files | Branches | Alternative files, templates | ⁉️ |
+| **Custom variables in templates** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Executable files** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **File creation with initial contents** | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| **Externals** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Manage partial files** | ✅ | ❌ | ❌ | ⁉️ | ✅ | ⁉️ |
+| **File removal** | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **Directory creation** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Run scripts** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Run once scripts** | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| **Machine-to-machine symlink differences** | ✅ | ❌ | ❌ | ⁉️ | ✅ | ⁉️ |
+| **Shell completion** | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Archive import** | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| **Archive export** | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| **Implementation language** | Go | Python | Bash | POSIX Shell | Bash | C |
+
+## Legend
+
+- ✅ Supported
+- ⁉️ Possible with significant manual effort
+- ❌ Not supported
+
+## Key Differentiators
+
+### Single Binary Distribution
+
+chezmoi is distributed as a single, statically-linked binary with no runtime dependencies. This makes it:
+
+- Easy to install on any system
+- Perfect for bootstrapping new machines
+- Portable across different environments
+
+### Template System
+
+chezmoi's powerful template system allows you to:
+
+- Use different configurations on different machines
+- Include custom variables and logic
+- Integrate with password managers
+- Generate files dynamically
+
+### Encryption Support
+
+chezmoi provides built-in support for:
+
+- Age encryption
+- GPG encryption
+- Encrypted files in your repository
+- Secure secret management
+
+### Password Manager Integration
+
+Seamless integration with popular password managers:
+
+- 1Password
+- Bitwarden
+- LastPass
+- pass
+- And many others
+
+## Choosing the Right Tool
+
+### Choose chezmoi if you need:
+
+- Cross-platform support (especially Windows)
+- Template-based configuration
+- Encryption and secret management
+- Password manager integration
+- Zero bootstrap dependencies
+
+### Consider alternatives if you:
+
+- Prefer symlink-based management (dotbot, rcm)
+- Want multiple separate repositories (vcsh)
+- Need a simpler, script-based solution (bare git)
+- Are already invested in a specific ecosystem
+
+## Additional Resources
+
+For more comparisons and dotfile management tools, visit [dotfiles.github.io/utilities](https://dotfiles.github.io/utilities/).
+
+## Links
+
+- [chezmoi](https://chezmoi.io/)
+- [dotbot](https://github.com/anishathalye/dotbot)
+- [rcm](https://github.com/thoughtbot/rcm)
+- [vcsh](https://github.com/RichiH/vcsh)
+- [yadm](https://yadm.io/)
+- [bare git](https://www.atlassian.com/git/tutorials/dotfiles)

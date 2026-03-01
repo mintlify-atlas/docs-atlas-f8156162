@@ -1,0 +1,304 @@
+---
+title: completion
+description: Generate shell completion scripts
+---
+
+The `completion` command generates shell completion scripts for bash, fish, PowerShell, and zsh.
+
+## Usage
+
+```bash
+chezmoi completion <shell>
+```
+
+## Description
+
+Shell completion provides command-line suggestions and auto-completion for chezmoi commands, flags, and file paths. The `completion` command generates the appropriate completion script for your shell.
+
+## Supported Shells
+
+- `bash` - Bash completion
+- `fish` - Fish completion
+- `powershell` - PowerShell completion  
+- `zsh` - Zsh completion
+
+## Examples
+
+### Bash
+
+**One-time setup:**
+
+```bash
+# Generate and install completion
+chezmoi completion bash > /etc/bash_completion.d/chezmoi
+
+# Or for user-only installation
+mkdir -p ~/.local/share/bash-completion/completions
+chezmoi completion bash > ~/.local/share/bash-completion/completions/chezmoi
+```
+
+**Add to `.bashrc`:**
+
+```bash
+eval "$(chezmoi completion bash)"
+```
+
+**Source immediately:**
+
+```bash
+source <(chezmoi completion bash)
+```
+
+### Zsh
+
+**One-time setup:**
+
+```bash
+# Add to fpath
+mkdir -p ~/.zsh/completion
+chezmoi completion zsh > ~/.zsh/completion/_chezmoi
+
+# Add to .zshrc (before compinit)
+fpath=(~/.zsh/completion $fpath)
+autoload -Uz compinit && compinit
+```
+
+**Or generate on-the-fly:**
+
+Add to `.zshrc`:
+
+```zsh
+eval "$(chezmoi completion zsh)"
+```
+
+**For Oh My Zsh:**
+
+```bash
+mkdir -p ~/.oh-my-zsh/custom/plugins/chezmoi
+chezmoi completion zsh > ~/.oh-my-zsh/custom/plugins/chezmoi/_chezmoi
+
+# Add 'chezmoi' to plugins in .zshrc
+plugins=(git ... chezmoi)
+```
+
+### Fish
+
+**One-time setup:**
+
+```fish
+chezmoi completion fish > ~/.config/fish/completions/chezmoi.fish
+```
+
+**Source immediately:**
+
+```fish
+chezmoi completion fish | source
+```
+
+### PowerShell
+
+**Add to profile:**
+
+```powershell
+chdir completion powershell >> $PROFILE
+```
+
+**Or load dynamically:**
+
+```powershell
+chezmoi completion powershell | Out-String | Invoke-Expression
+```
+
+## Platform-Specific Instructions
+
+### macOS
+
+**Bash (via Homebrew):**
+
+```bash
+# Install bash-completion if not already installed
+brew install bash-completion
+
+# Generate completion
+chezmoi completion bash > $(brew --prefix)/etc/bash_completion.d/chezmoi
+```
+
+**Zsh (default shell on macOS Catalina+):**
+
+```bash
+mkdir -p ~/.zsh/completion
+chezmoi completion zsh > ~/.zsh/completion/_chezmoi
+
+# Add to ~/.zshrc
+fpath=(~/.zsh/completion $fpath)
+autoload -Uz compinit && compinit
+```
+
+### Linux
+
+**Debian/Ubuntu (bash):**
+
+```bash
+sudo chezmoi completion bash > /etc/bash_completion.d/chezmoi
+```
+
+**Fedora/RHEL/CentOS (bash):**
+
+```bash
+sudo chezmoi completion bash > /etc/bash_completion.d/chezmoi
+```
+
+**Arch Linux (zsh):**
+
+```bash
+sudo chezmoi completion zsh > /usr/share/zsh/site-functions/_chezmoi
+```
+
+### Windows
+
+**PowerShell:**
+
+```powershell
+# Create profile if it doesn't exist
+if (!(Test-Path -Path $PROFILE)) {
+    New-Item -ItemType File -Path $PROFILE -Force
+}
+
+# Add completion
+chezmoi completion powershell >> $PROFILE
+```
+
+## Testing Completion
+
+After installation, test the completion:
+
+```bash
+# Type 'chezmoi ' and press Tab
+chezmoi <Tab>
+
+# Should show available commands:
+apply  add  edit  init  update  status  diff  ...
+
+# Test flag completion
+chezmoi apply --<Tab>
+
+# Should show available flags:
+--apply  --dry-run  --exclude  --include  --verbose  ...
+```
+
+## Features
+
+### Command completion
+
+```bash
+chezmoi <Tab>
+# Shows: add, apply, cd, diff, edit, init, status, update, ...
+```
+
+### Flag completion
+
+```bash
+chezmoi apply --<Tab>  
+# Shows: --dry-run, --exclude, --include, --recursive, --verbose, ...
+```
+
+### File path completion
+
+```bash
+chezmoi add ~/<Tab>
+# Shows files in your home directory
+
+chezmoi edit ~/.<Tab>
+# Shows dotfiles in your home directory
+```
+
+### Subcommand completion
+
+```bash
+chezmoi git <Tab>
+# Shows: add, commit, push, pull, status, ...
+```
+
+## Troubleshooting
+
+### Completion not working (bash)
+
+Ensure bash-completion is installed:
+
+```bash
+# Debian/Ubuntu
+sudo apt install bash-completion
+
+# macOS
+brew install bash-completion
+
+# Fedora
+sudo dnf install bash-completion
+```
+
+Source completion manually:
+
+```bash
+source /etc/bash_completion
+```
+
+### Completion not working (zsh)
+
+Ensure compinit is loaded:
+
+```zsh
+# Add to .zshrc before loading completion
+autoload -Uz compinit && compinit
+```
+
+Check fpath:
+
+```zsh
+echo $fpath
+# Should include the directory containing _chezmoi
+```
+
+### Completion not working (fish)
+
+Check completion file location:
+
+```fish
+echo $fish_complete_path
+# Should include ~/.config/fish/completions
+```
+
+Regenerate completions:
+
+```fish
+rm ~/.config/fish/completions/chezmoi.fish
+chezmoi completion fish > ~/.config/fish/completions/chezmoi.fish
+```
+
+### Permission denied
+
+If installing system-wide:
+
+```bash
+sudo chezmoi completion bash > /etc/bash_completion.d/chezmoi
+```
+
+Or install to user directory instead.
+
+## Updating Completions
+
+After upgrading chezmoi, regenerate completions:
+
+```bash
+# Bash
+chezmoi completion bash > ~/.local/share/bash-completion/completions/chezmoi
+
+# Zsh  
+chezmoi completion zsh > ~/.zsh/completion/_chezmoi
+
+# Fish
+chezmoi completion fish > ~/.config/fish/completions/chezmoi.fish
+```
+
+## Related Commands
+
+- [init](/commands/init) - Initialize chezmoi

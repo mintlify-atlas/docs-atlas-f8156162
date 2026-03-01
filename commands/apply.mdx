@@ -1,0 +1,116 @@
+---
+title: apply
+description: Update the destination directory to match the target state
+---
+
+The `apply` command ensures that the specified targets are in the target state, updating them if necessary. This is the command that actually modifies files in your home directory to match your source state.
+
+## Usage
+
+```bash
+chezmoi apply [target]...
+```
+
+## Description
+
+The `apply` command updates the destination directory to match the target state defined in your source directory. If no targets are specified, chezmoi applies changes to all managed files.
+
+If a target has been modified since chezmoi last wrote it, you will be prompted to confirm whether you want to overwrite the file (unless `--force` is specified).
+
+## Flags
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="--init" type="boolean" default="false">
+  Recreate the config file from the template in the source directory. Useful when template data has changed.
+</ParamField>
+
+<ParamField path="-P, --parent-dirs" type="boolean" default="false">
+  Apply changes to all parent directories of the specified targets.
+</ParamField>
+
+<ParamField path="-r, --recursive" type="boolean" default="true">
+  Recurse into subdirectories.
+</ParamField>
+
+## Examples
+
+### Apply all changes
+
+```bash
+chezmoi apply
+```
+
+This updates your entire home directory to match the target state.
+
+### Dry run to see what would change
+
+```bash
+chezmoi apply --dry-run --verbose
+```
+
+Shows what changes would be made without actually making them.
+
+### Apply changes to a specific file
+
+```bash
+chezmoi apply ~/.bashrc
+```
+
+### Apply with verbose output
+
+```bash
+chezmoi apply -v
+```
+
+Shows detailed information about what changes are being made.
+
+### Apply and recreate config
+
+```bash
+chezmoi apply --init
+```
+
+Useful when you've updated template data and want to regenerate your config file.
+
+## Behavior
+
+### Interactive Prompts
+
+When a file has been modified locally and differs from both the target state and the last known state, chezmoi will prompt you to choose an action:
+
+- **Yes** - Overwrite the local file with the target state
+- **No** - Skip this file
+- **All** - Overwrite this and all subsequent files without prompting
+- **Quit** - Exit chezmoi immediately
+
+Use `--force` to automatically overwrite without prompting.
+
+### Scripts
+
+Scripts in your source state (files starting with `run_`) are executed when you apply changes. Scripts are only run once unless:
+
+- They have the `always` attribute (prefix `run_always_`)
+- You use the `--force` flag
+
+## Terminal Output
+
+```bash
+$ chezmoi apply -v
+.bashrc: updating
+.gitconfig: updating
+.tmux.conf: no changes
+run_once_install-packages.sh: running script
+```
+
+## Related Commands
+
+- [diff](/commands/diff) - Preview changes before applying
+- [status](/commands/status) - Check the status of managed files
+- [update](/commands/update) - Pull changes and apply them

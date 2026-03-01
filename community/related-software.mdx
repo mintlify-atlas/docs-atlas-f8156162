@@ -1,0 +1,168 @@
+---
+title: Related Software
+description: Tools, plugins, and integrations that work with chezmoi
+---
+
+Discover software that integrates with chezmoi or enhances your dotfile management experience.
+
+## Editor Integration
+
+### NeoVim Plugins
+
+<CardGroup cols={2}>
+  <Card title="nvim-chezmoi" icon="code" href="https://github.com/andre-kotake/nvim-chezmoi">
+    A NeoVim plugin that integrates with chezmoi
+  </Card>
+  
+  <Card title="chezmoi.nvim" icon="code" href="https://github.com/xvzc/chezmoi.nvim">
+    Edit your chezmoi-managed files and automatically apply
+  </Card>
+  
+  <Card title="chezmoi-telescope.nvim" icon="search" href="https://github.com/GianniBYoung/chezmoi-telescope.nvim">
+    Custom Telescope picker for chezmoi managed dotfiles
+  </Card>
+</CardGroup>
+
+### Vim Plugins
+
+<CardGroup cols={2}>
+  <Card title="chezmoi.vim" icon="code" href="https://github.com/alker0/chezmoi.vim">
+    Intelligent VIM syntax highlighting when editing files in your source directory. Works with both `chezmoi edit` and editing files directly.
+  </Card>
+  
+  <Card title="vim-chezmoi" icon="code" href="https://github.com/Lilja/vim-chezmoi">
+    A plugin for VIM to apply the dotfile you are editing on `:w`
+  </Card>
+</CardGroup>
+
+### Emacs Packages
+
+<CardGroup cols={2}>
+  <Card title="chezmoi.el" icon="code" href="https://github.com/tuh8888/chezmoi.el">
+    Convenience functions for interacting with chezmoi in Emacs
+  </Card>
+  
+  <Card title="tmpl-mode" icon="code" href="https://github.com/Lindydancer/tmpl-mode">
+    Emacs minor mode for "tmpl" template files
+  </Card>
+</CardGroup>
+
+## Shell Integration
+
+<CardGroup cols={2}>
+  <Card title="zsh-chezmoi" icon="terminal" href="https://github.com/mass8326/zsh-chezmoi">
+    Add completion and aliases for chezmoi to make managing dotfiles easier in zsh
+  </Card>
+  
+  <Card title="fish-chezmoi" icon="terminal" href="https://github.com/halostatue/fish-chezmoi">
+    A plugin for the Fish shell that ensures completions are always loaded and a function that wraps `chezmoi cd`
+  </Card>
+</CardGroup>
+
+## UI Tools
+
+<CardGroup cols={2}>
+  <Card title="chezmoi-ui" icon="desktop" href="https://github.com/johan-weitner/chezmoi-ui">
+    A web UI for managing a list of apps to seed/feed a chezmoi setup
+  </Card>
+  
+  <Card title="chezmoi-mousse" icon="desktop" href="https://github.com/matmaer/chezmoi-mousse">
+    Visual interface in the terminal for the chezmoi dotfile manager, with a wink to the mouse
+  </Card>
+</CardGroup>
+
+## System Integration
+
+### Root File Management
+
+<CardGroup cols={2}>
+  <Card title="chezroot" icon="lock" href="https://github.com/main-branch/chezroot">
+    A `sudo` wrapper for chezmoi to manage root-owned files across your entire filesystem
+  </Card>
+  
+  <Card title="Chezetc" icon="lock" href="https://silverrainz.me/chezetc/">
+    Extending chezmoi to manage files under /etc and other root-owned directories
+  </Card>
+</CardGroup>
+
+### Package Managers
+
+<CardGroup cols={2}>
+  <Card title="asdf-chezmoi" icon="package" href="https://github.com/joke/asdf-chezmoi">
+    chezmoi plugin for asdf version manager
+  </Card>
+  
+  <Card title="ansible-role-chezmoi" icon="package" href="https://github.com/hussainweb/ansible-role-chezmoi">
+    Installs chezmoi on Ubuntu and Debian servers
+  </Card>
+</CardGroup>
+
+## Utilities
+
+### Configuration Management
+
+<CardGroup cols={2}>
+  <Card title="drapeau" icon="palette" href="https://github.com/tcaxle/drapeau">
+    An add-on to synchronize your color schemes across systems and allow easy colorscheme switching using chezmoi templates
+  </Card>
+  
+  <Card title="chezmoi_modify_manager" icon="wrench" href="https://github.com/VorpalBlade/chezmoi_modify_manager">
+    An add-on to deal with config files that contain a mix of settings and transient state, such as GUI program settings
+  </Card>
+</CardGroup>
+
+### System Tools
+
+<CardGroup cols={2}>
+  <Card title="atuin" icon="clock" href="https://atuin.sh/">
+    Sync, search and backup shell history. Works great with chezmoi for complete dotfile management
+  </Card>
+  
+  <Card title="xdg-ninja" icon="broom" href="https://github.com/b3nj5m1n/xdg-ninja">
+    A shell script which checks your $HOME for unwanted files and directories
+  </Card>
+</CardGroup>
+
+## Complete Solutions
+
+<Card title="install.doctor" icon="stethoscope" href="https://install.doctor">
+  Desktop provisioning system that uses chezmoi as part of a complete system setup solution
+</Card>
+
+## Building Your Own Integration
+
+Interested in building a tool that integrates with chezmoi?
+
+<Card title="Building on Top of chezmoi" icon="hammer" href="/developer/building-on-top-of-chezmoi">
+  Learn how to integrate with chezmoi and use its APIs
+</Card>
+
+## Categories
+
+### By Use Case
+
+- **Editing**: Vim, NeoVim, and Emacs plugins for editing dotfiles
+- **Shell**: Completion and convenience functions for shells
+- **Automation**: Scripts and tools for automated setup
+- **Security**: Tools for managing secrets and root files
+- **UI**: Graphical and TUI interfaces for chezmoi
+
+### By Platform
+
+- **Linux**: Most tools work on Linux
+- **macOS**: Most tools work on macOS
+- **Windows**: Check individual tool compatibility
+- **BSD**: Some tools support BSD systems
+
+## Contributing
+
+If you've built a tool that works with chezmoi:
+
+1. Add the `chezmoi` topic to your repository
+2. Share it in [GitHub Discussions](https://github.com/twpayne/chezmoi/discussions)
+3. Consider submitting a PR to add it to the official documentation
+
+## See Also
+
+- [Dotfile Repos](/community/dotfile-repos) - Example dotfile repositories
+- [Articles](/community/articles) - Articles about chezmoi integrations

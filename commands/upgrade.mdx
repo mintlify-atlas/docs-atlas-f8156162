@@ -1,0 +1,321 @@
+---
+title: upgrade
+description: Upgrade chezmoi to the latest released version
+---
+
+The `upgrade` command upgrades chezmoi to the latest released version from GitHub.
+
+## Usage
+
+```bash
+chezmoi upgrade
+```
+
+## Description
+
+The `upgrade` command automatically downloads and installs the latest stable version of chezmoi from the official GitHub releases. The upgrade method is automatically detected based on how chezmoi was installed.
+
+After upgrading, the new chezmoi version is executed with the `--version` flag to verify the upgrade was successful.
+
+## Upgrade Methods
+
+chezmoi automatically detects the appropriate upgrade method:
+
+- **replace-executable**: Direct binary replacement (most common)
+- **brew-upgrade**: Homebrew on macOS/Linux
+- **snap-refresh**: Snap on Linux
+- **winget-upgrade**: Windows Package Manager
+- **upgrade-package**: Package manager on Linux (APT, DNF, etc.)
+
+Use `chezmoi doctor` to see which upgrade method will be used.
+
+## Flags
+
+<ParamField path="--executable" type="string">
+  Path to the executable to replace. By default, uses the currently running chezmoi executable.
+</ParamField>
+
+<ParamField path="--method" type="string">
+  Force a specific upgrade method. Options: `replace-executable`, `brew-upgrade`, `snap-refresh`, `winget-upgrade`, `upgrade-package`. If not specified, the method is automatically detected.
+</ParamField>
+
+## Examples
+
+### Upgrade to latest version
+
+```bash
+chezmoi upgrade
+```
+
+### Force upgrade even if already on latest version
+
+```bash
+chezmoi upgrade --force
+```
+
+Useful for reinstalling or fixing a broken installation.
+
+### Upgrade with specific method
+
+```bash
+chezmoi upgrade --method=replace-executable
+```
+
+### Check what method will be used
+
+```bash
+chezmoi doctor | grep upgrade-method
+```
+
+## Terminal Output
+
+### Successful upgrade
+
+```bash
+$ chezmoi upgrade
+Downloading chezmoi v2.47.0...
+Installing...
+chezmoi version v2.47.0, commit abc1234def5678, built at 2024-01-20T10:30:00Z
+```
+
+### Already on latest version
+
+```bash
+$ chezmoi upgrade  
+chezmoi: already at the latest version (v2.47.0)
+```
+
+### Forced upgrade
+
+```bash
+$ chezmoi upgrade --force
+Downloading chezmoi v2.47.0...
+Installing...
+chezmoi version v2.47.0, commit abc1234def5678, built at 2024-01-20T10:30:00Z
+```
+
+## Platform-Specific Behavior
+
+### Linux
+
+On Linux, chezmoi determines whether to use:
+
+- **glibc** or **musl** builds (for x86_64)
+- Package managers (if installed via APT, DNF, etc.)
+- Snap (if installed via Snap)
+- Direct binary replacement
+
+### macOS
+
+On macOS:
+
+- Uses Homebrew if chezmoi was installed via `brew`
+- Otherwise replaces the binary directly
+
+### Windows
+
+On Windows:
+
+- Uses WinGet if available
+- Otherwise downloads and replaces the `.exe` file
+- The old executable is renamed to `chezmoi.exe.old`
+
+## Automation
+
+### Automatic updates with cron
+
+```bash
+# Check for updates daily
+0 0 * * * /usr/local/bin/chezmoi upgrade
+```
+
+### Systemd timer
+
+```ini
+# /etc/systemd/system/chezmoi-upgrade.service
+[Unit]
+Description=Upgrade chezmoi
+
+[Service]
+Type=oneshot
+User=username
+ExecStart=/usr/local/bin/chezmoi upgrade
+```
+
+```ini
+# /etc/systemd/system/chezmoi-upgrade.timer  
+[Unit]
+Description=Weekly chezmoi upgrade
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable:
+```bash
+systemctl enable --now chezmoi-upgrade.timer
+```
+
+### Upgrade notification script
+
+```bash
+#!/bin/bash
+current_version=$(chezmoi --version | awk '{print $3}' | cut -d'v' -f2)
+latest_version=$(curl -s https://api.github.com/repos/twpayne/chezmoi/releases/latest | \
+                 grep '"tag_name":' | cut -d'"' -f4 | cut -d'v' -f2)
+
+if [ "$current_version" != "$latest_version" ]; then
+    echo "Chezmoi update available: v$current_version -> v$latest_version"
+    echo "Run 'chezmoi upgrade' to update"
+fi
+```
+
+## Troubleshooting
+
+### Permission denied
+
+If you get a permission error:
+
+```bash
+# Make sure you have write permission
+ls -l $(which chezmoi)
+
+# If installed system-wide, use sudo
+sudo chezmoi upgrade
+
+# Or install to user directory
+chezmoi upgrade --executable ~/.local/bin/chezmoi
+```
+
+### Cannot determine upgrade method
+
+```bash
+$ chezmoi upgrade
+error: linux/amd64: cannot determine upgrade method for /usr/local/bin/chezmoi
+```
+
+Specify the method explicitly:
+
+```bash
+chezmoi upgrade --method=replace-executable
+```
+
+### Network errors
+
+If GitHub is unreachable:
+
+```bash
+# Check network connectivity
+curl -I https://api.github.com
+
+# Use a proxy if needed
+export HTTPS_PROXY=http://proxy.example.com:8080
+chezmoi upgrade
+```
+
+### Dev version warning
+
+```bash
+$ chezmoi upgrade
+error: cannot upgrade dev version to latest released version unless --force is set
+```
+
+If you're running a development build, use `--force`:
+
+```bash
+chezmoi upgrade --force
+```
+
+## Manual Upgrade
+
+If automatic upgrade fails, manually download from GitHub:
+
+```bash
+# Linux x86_64
+curl -sfL https://github.com/twpayne/chezmoi/releases/latest/download/chezmoi-linux-amd64.tar.gz | \
+  tar -xz -C ~/.local/bin
+
+# macOS ARM64
+curl -sfL https://github.com/twpayne/chezmoi/releases/latest/download/chezmoi-darwin-arm64.tar.gz | \
+  tar -xz -C ~/.local/bin
+
+# Verify
+chezmoi --version
+```
+
+## Upgrade via Package Managers
+
+### Homebrew
+
+```bash
+brew update
+brew upgrade chezmoi
+```
+
+### Snap
+
+```bash
+sudo snap refresh chezmoi
+```
+
+### APT (Ubuntu/Debian)
+
+If installed from PPA:
+
+```bash
+sudo apt update
+sudo apt upgrade chezmoi
+```
+
+### Pacman (Arch Linux)
+
+```bash
+sudo pacman -Syu chezmoi
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop update chezmoi
+```
+
+## Downgrading
+
+If you need to downgrade:
+
+```bash
+# Find the version you want
+chown +x install.sh
+
+# Install specific version
+sh -c "$(curl -fsLS get.chezmoi.io)" -- -b ~/.local/bin v2.46.0
+```
+
+## Checking for Updates
+
+### Check current version
+
+```bash
+chezmoi --version
+```
+
+### Check latest version
+
+```bash
+curl -s https://api.github.com/repos/twpayne/chezmoi/releases/latest | \
+  grep '"tag_name":' | cut -d'"' -f4
+```
+
+### Compare versions
+
+```bash
+chezm doctor | grep -E "(version|latest-version)"
+```
+
+## Related Commands
+
+- [doctor](/commands/doctor) - Check upgrade method and version

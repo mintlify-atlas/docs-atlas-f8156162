@@ -1,0 +1,229 @@
+---
+title: Application Order
+description: The deterministic order in which chezmoi applies changes
+---
+
+# Application Order
+
+chezmoi is deterministic in its order of application. Understanding this order is important when writing scripts that depend on other resources or when debugging issues.
+
+## Application Phases
+
+The order of application is:
+
+1. **Read the source state** - chezmoi reads all files in the source directory
+2. **Read the destination state** - chezmoi reads the current state of the destination directory
+3. **Compute the target state** - chezmoi determines what changes need to be made
+4. **Run `run_before_` scripts** - Scripts are executed in alphabetical order
+5. **Update entries** - Files, directories, externals, scripts, symlinks are updated in alphabetical order of their target name
+6. **Run `run_after_` scripts** - Scripts are executed in alphabetical order
+
+## Target Name Ordering
+
+Target names are considered **after all attributes are stripped**.
+
+<Note>
+Given `create_alpha` and `modify_dot_beta` in the source state, `.beta` will be updated before `alpha` because `.beta` sorts before `alpha`.
+</Note>
+
+### Ordering Examples
+
+```bash
+# Source state files:
+create_dot_zshrc          # Target: .zshrc
+modify_dot_bashrc         # Target: .bashrc  
+executable_dot_bin_script # Target: .bin/script
+run_after_update.sh       # Runs after all updates
+run_before_backup.sh      # Runs before all updates
+
+# Execution order:
+# 1. run_before_backup.sh
+# 2. .bashrc (modify)
+# 3. .bin/script (directory created, then file)
+# 4. .zshrc (create)
+# 5. run_after_update.sh
+```
+
+## Directory Handling
+
+Directories (including those created by externals) are updated **before** the files they contain.
+
+### Example
+
+```bash
+# Source state:
+exact_dot_config/          # Directory
+exact_dot_config/app/      # Subdirectory
+dot_config_app_config.json # File in subdirectory
+
+# Update order:
+# 1. .config/ directory
+# 2. .config/app/ directory
+# 3. .config/app/config.json file
+```
+
+## Script Execution Order
+
+### Before Scripts
+
+All `run_before_` scripts are executed in alphabetical order **before** any files, directories, or symlinks are updated.
+
+```bash
+run_before_01_validate.sh
+run_before_02_backup.sh
+run_before_03_prepare.sh
+```
+
+### During Updates
+
+Scripts without `before_` or `after_` attributes are executed in alphabetical order along with other entry types.
+
+```bash
+# Executed in ASCII order with files:
+dot_bashrc
+run_install.sh  # Executed between .bashrc and .zshrc
+dot_zshrc
+```
+
+### After Scripts
+
+All `run_after_` scripts are executed in alphabetical order **after** all files, directories, and symlinks have been updated.
+
+```bash
+run_after_01_reload.sh
+run_after_02_cleanup.sh
+run_after_03_notify.sh
+```
+
+## External Resources
+
+External sources (defined in `.chezmoiexternal.$FORMAT` or `.chezmoiexternals/` directories) are updated during the update phase.
+
+<Warning>
+It is inadvisable for a `run_before_` script to depend on an external applied **during** the update phase. `run_after_` scripts may freely depend on externals.
+</Warning>
+
+### Example
+
+```toml title=".chezmoiexternal.toml"
+# This external is applied during the update phase
+[".oh-my-zsh"]
+    type = "archive"
+    url = "https://github.com/ohmyzsh/ohmyzsh/archive/master.tar.gz"
+```
+
+```bash
+# run_before_setup.sh
+# BAD: This may fail because .oh-my-zsh doesn't exist yet
+cd ~/.oh-my-zsh
+
+# run_after_setup.sh
+# GOOD: .oh-my-zsh is guaranteed to exist
+cd ~/.oh-my-zsh
+```
+
+## Important Assumptions
+
+chezmoi assumes that the source or destination states are **not modified** while chezmoi is being executed. This assumption permits significant performance improvements, including allowing chezmoi to only read files from the source and destination states if they are needed to compute the target state.
+
+<Warning>
+chezmoi's behavior when the above assumptions are violated is undefined.
+</Warning>
+
+### Violation Examples
+
+```bash
+# BAD: Modifying source state during execution
+# run_before_update_source.sh
+echo "new content" > "$CHEZMOI_SOURCE_DIR/dot_newfile"
+
+# BAD: Modifying destination state during before script
+# run_before_modify_dest.sh  
+echo "content" > ~/.important_file
+```
+
+## Practical Examples
+
+### Database Migration Pattern
+
+```bash
+# run_before_01_backup_db.sh
+mysqldump mydb > /tmp/backup.sql
+
+# dot_config_myapp_schema.sql (applied during update phase)
+# run_after_01_migrate_db.sh  
+mysql mydb < ~/.config/myapp/schema.sql
+```
+
+### Service Restart Pattern
+
+```bash
+# run_before_stop_service.sh
+sudo systemctl stop myservice
+
+# dot_config_myservice_config.toml (applied during update)
+# run_after_start_service.sh
+sudo systemctl start myservice
+```
+
+### Package Installation Pattern
+
+```bash
+# run_once_before_install_deps.sh
+apt-get update
+
+# Various config files applied during update
+# run_onchange_after_configure.sh.tmpl
+# chezmoi:template:left-delimiter=#{{ right-delimiter=}}#
+#{{ range .packages }}#
+apt-get install -y #{{ . }}#
+#{{ end }}#
+```
+
+### Numbered Script Pattern
+
+Use numeric prefixes to control exact execution order:
+
+```bash
+run_before_00_validate_system.sh
+run_before_10_backup.sh
+run_before_20_prepare.sh
+
+# ... files updated ...
+
+run_after_10_reload_configs.sh
+run_after_20_restart_services.sh
+run_after_30_verify.sh
+run_after_99_cleanup.sh
+```
+
+## Performance Implications
+
+The deterministic ordering allows chezmoi to:
+
+- **Lazy read files**: Only read files when needed to compute target state
+- **Optimize I/O**: Batch operations where possible
+- **Cache computations**: Reuse computed values across phases
+- **Parallelize safely**: Know which operations can run concurrently
+
+## Debugging Order Issues
+
+Use these commands to understand execution order:
+
+```bash
+# Show all changes in order
+chezmoi apply --dry-run --verbose
+
+# Show target state
+chezmoi target-state
+
+# Show scripts that would run
+chezmoi execute-template '{{ range $key, $value := .chezmoi }}{{ $key }}: {{ $value }}\n{{ end }}'
+```
+
+## Related Pages
+
+- [Target Types](/reference/target-types) - Different types of managed resources
+- [Source State Attributes](/reference/source-state-attributes) - File naming conventions
+- [Templates](/reference/templates/overview) - Template syntax for dynamic content
+- [`chezmoi apply`](/commands/apply) - Apply changes to destination

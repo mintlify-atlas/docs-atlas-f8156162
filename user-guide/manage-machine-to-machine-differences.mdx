@@ -1,0 +1,235 @@
+---
+title: Manage Machine-to-Machine Differences
+description: Use templates to customize dotfiles for different machines
+---
+
+## Use templates
+
+The primary goal of chezmoi is to manage configuration files across multiple machines with different requirements. chezmoi uses Go's [`text/template`](https://pkg.go.dev/text/template) syntax for customization.
+
+<Steps>
+  <Step title="Create a machine-specific config file">
+    Define variables that vary between machines:
+
+    <CodeGroup>
+    ```toml ~/.config/chezmoi/chezmoi.toml (Home)
+    [data]
+        email = "me@home.org"
+    ```
+
+    ```toml ~/.config/chezmoi/chezmoi.toml (Work)
+    [data]
+        email = "firstname.lastname@company.com"
+    ```
+    </CodeGroup>
+
+    <Warning>
+    If storing private data (access tokens), ensure permissions are `0600`.
+    </Warning>
+  </Step>
+
+  <Step title="Add the file as a template">
+    ```bash
+    chezmoi add --template ~/.gitconfig
+    ```
+
+    This creates `~/.local/share/chezmoi/dot_gitconfig.tmpl`.
+  </Step>
+
+  <Step title="Edit the template">
+    ```bash
+    chezmoi edit ~/.gitconfig
+    ```
+
+    Update the file to use template variables:
+
+    ```toml ~/.local/share/chezmoi/dot_gitconfig.tmpl
+    [user]
+        email = {{ .email | quote }}
+    ```
+  </Step>
+</Steps>
+
+<Tabs>
+  <Tab title="View available data">
+    ```bash
+    chezmoi data
+    ```
+
+    Shows all template variables available on your system.
+  </Tab>
+
+  <Tab title="Test templates">
+    ```bash
+    chezmoi execute-template "{{ .chezmoi.os }}/{{ .chezmoi.arch }}"
+    ```
+
+    Executes templates directly without creating files.
+  </Tab>
+</Tabs>
+
+## Common template patterns
+
+<CodeGroup>
+```bash Machine-specific sections
+# ~/.local/share/chezmoi/dot_bashrc.tmpl
+# common config
+export EDITOR=vi
+
+# machine-specific configuration
+{{- if eq .chezmoi.hostname "work-laptop" }}
+# this will only be included in ~/.bashrc on work-laptop
+export WORK_ENV=production
+{{- end }}
+```
+
+```bash OS-specific configuration
+{{- if eq .chezmoi.os "darwin" }}
+# macOS specific
+export HOMEBREW_PREFIX="/opt/homebrew"
+{{- else if eq .chezmoi.os "linux" }}
+# Linux specific
+export PATH="$PATH:/usr/local/bin"
+{{- end }}
+```
+
+```bash Password manager integration
+# Retrieve a file from 1Password
+{{- onepasswordDocument "uuid" -}}
+```
+</CodeGroup>
+
+<Note>
+The `-` inside template brackets removes surrounding whitespace. This prevents extra newlines in your output.
+</Note>
+
+## Ignore files or directories on different machines
+
+Use `.chezmoiignore` templates for coarse-grained control:
+
+<CodeGroup>
+```text ~/.local/share/chezmoi/.chezmoiignore
+README.md
+{{- if ne .chezmoi.hostname "work-laptop" }}
+.work # only manage .work on work-laptop
+{{- end }}
+```
+
+```text Exclusion patterns
+dir/f*
+!dir/foo  # ignore all f* except foo
+```
+
+```bash Check ignored files
+chezmoi ignored
+```
+</CodeGroup>
+
+<Tip>
+Use `ne` (not equal) to express "only install if". We say "ignore unless work-laptop" instead of "install if work-laptop" because chezmoi installs everything by default.
+</Tip>
+
+## Handle different file locations on different systems with the same contents
+
+Use shared templates in `.chezmoitemplates`:
+
+<Steps>
+  <Step title="Create shared template">
+    ```text ~/.local/share/chezmoi/.chezmoitemplates/file.conf
+    # Common configuration
+    setting1 = value1
+    setting2 = value2
+    ```
+  </Step>
+
+  <Step title="Create platform-specific files">
+    <CodeGroup>
+    ```text Library/Application Support/App/file.conf.tmpl (macOS)
+    {{- template "file.conf" . -}}
+    ```
+
+    ```text dot_config/app/file.conf.tmpl (Linux)
+    {{- template "file.conf" . -}}
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Ignore files on wrong platforms">
+    ```text ~/.local/share/chezmoi/.chezmoiignore
+    {{ if ne .chezmoi.os "darwin" }}
+    Library/Application Support/App/file.conf
+    {{ end }}
+    {{ if ne .chezmoi.os "linux" }}
+    .config/app/file.conf
+    {{ end }}
+    ```
+  </Step>
+</Steps>
+
+## Use completely different dotfiles on different machines
+
+<Tabs>
+  <Tab title="Inline approach">
+    ```text ~/.local/share/chezmoi/dot_bashrc.tmpl
+    {{ if eq .chezmoi.os "darwin" -}}
+    # macOS .bashrc contents
+    export HOMEBREW_PREFIX="/opt/homebrew"
+    {{ else if eq .chezmoi.os "linux" -}}
+    # Linux .bashrc contents
+    export PATH="$PATH:/usr/local/bin"
+    {{ end -}}
+    ```
+  </Tab>
+
+  <Tab title="Separate files with include">
+    Create separate files for each platform:
+
+    <CodeGroup>
+    ```bash ~/.local/share/chezmoi/.bashrc_darwin
+    # macOS .bashrc contents
+    export HOMEBREW_PREFIX="/opt/homebrew"
+    ```
+
+    ```bash ~/.local/share/chezmoi/.bashrc_linux
+    # Linux .bashrc contents
+    export PATH="$PATH:/usr/local/bin"
+    ```
+
+    ```text ~/.local/share/chezmoi/dot_bashrc.tmpl
+    {{- if eq .chezmoi.os "darwin" -}}
+    {{-   include ".bashrc_darwin" -}}
+    {{- else if eq .chezmoi.os "linux" -}}
+    {{-   include ".bashrc_linux" -}}
+    {{- end -}}
+    ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab title="Templates within templates">
+    For templated content in separate files:
+
+    <CodeGroup>
+    ```text ~/.local/share/chezmoi/.chezmoitemplates/bashrc_darwin.tmpl
+    # macOS .bashrc with template variables
+    export EMAIL={{ .email | quote }}
+    ```
+
+    ```text ~/.local/share/chezmoi/.chezmoitemplates/bashrc_linux.tmpl
+    # Linux .bashrc with template variables
+    export EMAIL={{ .email | quote }}
+    ```
+
+    ```text ~/.local/share/chezmoi/dot_bashrc.tmpl
+    {{- if eq .chezmoi.os "darwin" -}}
+    {{-   template "bashrc_darwin.tmpl" . -}}
+    {{- else if eq .chezmoi.os "linux" -}}
+    {{-   template "bashrc_linux.tmpl" . -}}
+    {{- end -}}
+    ```
+    </CodeGroup>
+
+    <Note>
+    Pass `.` to the template function to make variables available in the included template.
+    </Note>
+  </Tab>
+</Tabs>

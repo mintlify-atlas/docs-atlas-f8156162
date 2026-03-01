@@ -1,0 +1,295 @@
+---
+title: managed
+description: List the managed entries in the destination directory
+---
+
+The `managed` command (also available as `list`) lists all files, directories, and symlinks managed by chezmoi.
+
+## Usage
+
+```bash
+chezmoi managed [path]...
+```
+
+## Description
+
+The `managed` command displays all entries that chezmoi manages in your destination directory. You can optionally specify paths to list only managed entries under those paths.
+
+## Flags
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-f, --format" type="string" default="text">
+  Output format. Options: `text`, `json`, `yaml`.
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-0, --nul-path-separator" type="boolean" default="false">
+  Use NUL character as path separator. Useful for piping to `xargs -0`.
+</ParamField>
+
+<ParamField path="-p, --path-style" type="string" default="relative">
+  Path style to use. Options:
+  - `relative` - Paths relative to home directory
+  - `absolute` - Absolute paths  
+  - `source-relative` - Paths relative to source directory
+  - `source-absolute` - Absolute paths in source directory
+  - `all` - All path information in structured format
+</ParamField>
+
+<ParamField path="-t, --tree" type="boolean" default="false">
+  Print paths as a tree structure.
+</ParamField>
+
+## Examples
+
+### List all managed files
+
+```bash
+chezmoi managed
+```
+
+Output:
+```
+.bashrc
+.gitconfig
+.ssh/config
+.vim/vimrc
+.zshrc
+```
+
+### List with absolute paths
+
+```bash
+chezmoi managed --path-style=absolute
+```
+
+Output:
+```
+/home/john/.bashrc
+/home/john/.gitconfig
+/home/john/.ssh/config
+/home/john/.vim/vimrc
+/home/john/.zshrc
+```
+
+### List in tree format
+
+```bash
+chezmoi managed --tree
+```
+
+Output:
+```
+.
+├── .bashrc
+├── .gitconfig
+├── .ssh
+│   └── config
+├── .vim
+│   └── vimrc
+└── .zshrc
+```
+
+### List only files (exclude directories)
+
+```bash
+chezmoi managed --include=files
+```
+
+### List managed files in a specific directory
+
+```bash
+chezmoi managed ~/.config
+```
+
+Output:
+```
+.config/nvim/init.vim
+.config/tmux/tmux.conf
+```
+
+### List source paths
+
+```bash
+chezmoi managed --path-style=source-relative
+```
+
+Output:
+```
+dot_bashrc
+dot_gitconfig
+private_dot_ssh/config
+dot_vim/vimrc
+dot_zshrc
+```
+
+### Export to JSON
+
+```bash
+chezmoi managed --path-style=all --format=json
+```
+
+Output:
+```json
+{
+  ".bashrc": {
+    "absolute": "/home/john/.bashrc",
+    "sourceAbsolute": "/home/john/.local/share/chezmoi/dot_bashrc",
+    "sourceRelative": "dot_bashrc"
+  },
+  ".gitconfig": {
+    "absolute": "/home/john/.gitconfig",
+    "sourceAbsolute": "/home/john/.local/share/chezmoi/dot_gitconfig",
+    "sourceRelative": "dot_gitconfig"
+  }
+}
+```
+
+### Use with xargs
+
+```bash
+chezmoi managed --nul-path-separator | xargs -0 ls -l
+```
+
+Safely pass managed files to other commands, even if filenames contain spaces.
+
+### Count managed files
+
+```bash
+chezmoi managed | wc -l
+```
+
+### Find large managed files
+
+```bash
+chezmoi managed --path-style=absolute | xargs ls -lh | sort -k5 -h
+```
+
+## Output Examples
+
+### Default (relative paths)
+
+```bash
+$ chezmoi managed
+.bashrc
+.config/nvim/init.vim
+.gitconfig
+.ssh/config
+.vimrc
+```
+
+### Tree view
+
+```bash
+$ chezmoi managed --tree
+.
+├── .bashrc
+├── .config
+│   └── nvim
+│       └── init.vim
+├── .gitconfig  
+├── .ssh
+│   └── config
+└── .vimrc
+```
+
+### Source paths
+
+```bash
+$ chezmoi managed --path-style=source-relative
+dot_bashrc
+dot_config/nvim/init.vim
+dot_gitconfig.tmpl
+private_dot_ssh/config
+dot_vimrc
+```
+
+## Filtering Examples
+
+### List only template files
+
+```bash
+chezmoi managed --include=templates
+```
+
+### List only encrypted files
+
+```bash
+chezmoi managed --include=encrypted
+```
+
+### List everything except scripts
+
+```bash
+chezmoi managed --exclude=scripts
+```
+
+### List only directories
+
+```bash
+chezmoi managed --include=dirs
+```
+
+## Scripting Examples
+
+### Backup all managed files
+
+```bash
+tar czf dotfiles-backup.tar.gz -C ~ $(chezmoi managed)
+```
+
+### Check permissions of managed files
+
+```bash
+chezmoi managed --path-style=absolute | xargs stat -c '%n %a'
+```
+
+### Search for a pattern in managed files
+
+```bash
+chezmoi managed --include=files | \
+  xargs -I {} grep -l "pattern" ~/{}  
+```
+
+## Common Use Cases
+
+### Verify what's managed
+
+Check which files chezmoi is tracking:
+
+```bash
+chezmoi managed | grep -E "\.(bash|zsh|vim)rc"
+```
+
+### Compare with actual files
+
+```bash
+# List managed files
+chezmoi managed > /tmp/managed.txt
+
+# List actual files
+find ~ -type f > /tmp/actual.txt
+
+# Compare
+comm -3 /tmp/managed.txt /tmp/actual.txt
+```
+
+### Export inventory
+
+Create a manifest of managed files:
+
+```bash
+chezmoi managed --path-style=all --format=yaml > inventory.yaml
+```
+
+## Related Commands
+
+- [unmanaged](/commands/unmanaged) - List unmanaged files
+- [status](/commands/status) - Show status of managed files
+- [add](/commands/add) - Add new files to be managed

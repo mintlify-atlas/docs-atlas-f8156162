@@ -1,0 +1,264 @@
+---
+title: execute-template
+description: Execute templates with access to template data
+---
+
+The `execute-template` command executes one or more templates and writes the output to stdout. This is useful for testing templates and template functions.
+
+## Usage
+
+```bash
+chezmoi execute-template [template]...
+```
+
+## Description
+
+The `execute-template` command evaluates templates with access to all template data and functions available in chezmoi, including:
+
+- Configuration data (`.` variables)
+- Template functions (`lookupSecret`, `output`, etc.)
+- Chezmoi metadata (`.chezmoi.*` variables)
+
+If no arguments are provided, reads a template from stdin. If arguments are provided, they are treated as template strings (or filenames with `--file`).
+
+## Flags
+
+<ParamField path="-f, --file" type="boolean" default="false">
+  Treat arguments as filenames containing templates rather than template strings.
+</ParamField>
+
+<ParamField path="-i, --init" type="boolean" default="false">
+  Simulate `chezmoi init` mode, which provides access to init-specific template functions like `promptString`, `promptBool`, etc.
+</ParamField>
+
+<ParamField path="--left-delimiter" type="string" default="{{">
+  Set the left template delimiter.
+</ParamField>
+
+<ParamField path="--right-delimiter" type="string" default="}}">
+  Set the right template delimiter.
+</ParamField>
+
+<ParamField path="-p, --promptString" type="key=value">
+  Simulate `promptString` responses. Format: `prompt=value`. Can be specified multiple times.
+</ParamField>
+
+<ParamField path="--promptBool" type="key=value">
+  Simulate `promptBool` responses. Format: `prompt=true|false`. Can be specified multiple times.
+</ParamField>
+
+<ParamField path="--promptInt" type="key=value">
+  Simulate `promptInt` responses. Format: `prompt=123`. Can be specified multiple times.
+</ParamField>
+
+<ParamField path="--promptChoice" type="key=value">
+  Simulate `promptChoice` responses. Format: `prompt=choice`. Can be specified multiple times.
+</ParamField>
+
+<ParamField path="--promptMultichoice" type="key=value">
+  Simulate `promptMultichoice` responses. Format: `prompt=choice1/choice2`. Can be specified multiple times.
+</ParamField>
+
+<ParamField path="--stdinisatty" type="boolean" default="false">
+  Simulate `stdinIsATTY` returning true.
+</ParamField>
+
+<ParamField path="--with-stdin" type="boolean" default="false">
+  Set `.chezmoi.stdin` to the contents of stdin.
+</ParamField>
+
+## Examples
+
+### Execute a simple template string
+
+```bash
+chezmoi execute-template "{{ .chezmoi.os }}"
+```
+
+Output:
+```
+linux
+```
+
+### Access configuration data
+
+```bash
+chezmoi execute-template "{{ .email }}"
+```
+
+Output:
+```
+john@example.com
+```
+
+### Test template functions
+
+```bash
+chezmoi execute-template "{{ output \"uname\" \"-m\" }}"
+```
+
+Output:
+```
+x86_64
+```
+
+### Execute a template file
+
+```bash
+chezmoi execute-template --file template.tmpl
+```
+
+### Read template from stdin
+
+```bash
+echo "{{ .chezmoi.hostname }}" | chezmoi execute-template
+```
+
+Output:
+```
+mylaptop
+```
+
+### Test init templates with prompts
+
+```bash
+chezmoi execute-template --init \
+  --promptString "email=john@example.com" \
+  --promptBool "useColor=true" \
+  "Email: {{ .email }}, Color: {{ .useColor }}"
+```
+
+Output:
+```
+Email: john@example.com, Color: true
+```
+
+### Use custom delimiters
+
+```bash
+chezmoi execute-template \
+  --left-delimiter "[[" \
+  --right-delimiter "]]" \
+  "OS: [[ .chezmoi.os ]]"
+```
+
+### Execute multiple templates
+
+```bash
+chezmoi execute-template \
+  "OS: {{ .chezmoi.os }}" \
+  "Arch: {{ .chezmoi.arch }}"
+```
+
+Output:
+```
+OS: linux
+Arch: amd64
+```
+
+### Access stdin in templates
+
+```bash
+echo "Hello World" | chezmoi execute-template --with-stdin \
+  "Input was: {{ .chezmoi.stdin }}"
+```
+
+Output:
+```
+Input was: Hello World
+```
+
+## Template Testing
+
+### Test conditionals
+
+```bash
+chezmoi execute-template '{{ if eq .chezmoi.os "linux" }}Linux!{{ else }}Not Linux{{ end }}'
+```
+
+### Test loops
+
+```bash
+chezmoi execute-template '{{ range list "a" "b" "c" }}{{ . }} {{ end }}'
+```
+
+Output:
+```
+a b c
+```
+
+### Test secret managers
+
+```bash
+chezmoi execute-template '{{ (onepassword "item").password }}'
+```
+
+### Debug template data
+
+```bash
+chezmoi execute-template '{{ . | toPrettyJson }}'
+```
+
+Prints all available template data in JSON format.
+
+## Init Template Testing
+
+Test your `.chezmoi.toml.tmpl` configuration template:
+
+```bash
+chezmoi execute-template --init \
+  --promptString "email=john@example.com" \
+  --promptString "name=John Doe" \
+  --promptBool "installDevTools=true" \
+  --file .chezmoi.toml.tmpl
+```
+
+## Terminal Output
+
+```bash
+$ chezmoi execute-template "My username is {{ .chezmoi.username }}"
+My username is john
+
+$ chezmoi execute-template '{{ .chezmoi | toPrettyJson }}'
+{
+  "arch": "amd64",
+  "os": "linux",
+  "hostname": "mylaptop",
+  "username": "john"
+}
+```
+
+## Common Use Cases
+
+### Debug why a template isn't working
+
+```bash
+# See the actual output
+chezmoi execute-template --file ~/.local/share/chezmoi/dot_bashrc.tmpl
+
+# Test specific expressions
+chezmoi execute-template '{{ .nonexistent }}'
+```
+
+### Test template functions before using them
+
+```bash
+# Test onepassword
+chezmoi execute-template '{{ (onepassword "item") | toPrettyJson }}'
+
+# Test bitwarden  
+chezmoi execute-template '{{ (bitwarden "item") | toPrettyJson }}'
+```
+
+### Validate init prompts
+
+```bash
+chezmoi execute-template --init \
+  --promptString "email=test@example.com" \
+  "{{ .email }}"
+```
+
+## Related Commands
+
+- [cat](/commands/cat) - View target contents of managed files
+- [init](/commands/init) - Initialize chezmoi with template prompts

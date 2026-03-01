@@ -1,0 +1,477 @@
+---
+title: Doppler
+description: Integrate Doppler with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [Doppler](https://www.doppler.com), a secrets management platform, using the `doppler` CLI to expose data through template functions.
+
+## Setup
+
+### Install Doppler CLI
+
+<CodeGroup>
+```bash macOS
+brew install dopplerhq/cli/doppler
+```
+
+```bash Linux
+(curl -Ls --tlsv1.2 --proto "=https" --retry 3 https://cli.doppler.com/install.sh || wget -t 3 -qO- https://cli.doppler.com/install.sh) | sudo sh
+```
+
+```bash Windows
+scoop install doppler
+```
+</CodeGroup>
+
+### Log In
+
+Authenticate with Doppler:
+
+```bash
+doppler login
+```
+
+This opens your browser to complete authentication.
+
+### Setup Project
+
+Configure Doppler for your project:
+
+```bash
+# In your project directory
+doppler setup
+```
+
+Or specify project and config:
+
+```bash
+doppler configure set project my-project
+doppler configure set config dev
+```
+
+## Template Functions
+
+### `doppler`
+
+Retrieve a specific secret by key:
+
+```text
+{{ doppler "SECRET_NAME" "project-name" "config" }}
+```
+
+All three arguments:
+- `SECRET_NAME`: Required, the secret key
+- `project-name`: Optional, defaults to configured project
+- `config`: Optional, defaults to configured config (environment)
+
+### `dopplerProjectJson`
+
+Get all secrets as structured JSON:
+
+```text
+{{ (dopplerProjectJson "project" "config").PASSWORD }}
+{{ (dopplerProjectJson "project" "config").API_KEY }}
+```
+
+Both arguments optional if defaults are configured.
+
+## Configuration
+
+Set default project and config in chezmoi:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[doppler]
+    project = "my-project"
+    config = "dev"
+```
+
+With defaults configured, you can omit project/config in template functions:
+
+```text
+{{ doppler "SECRET_NAME" }}
+{{ dopplerProjectJson.SECRET_NAME }}
+```
+
+## Usage Examples
+
+### Simple Secrets
+
+<CodeGroup>
+```text With Defaults
+# ~/.config/chezmoi/chezmoi.toml
+[doppler]
+    project = "my-app"
+    config = "dev"
+
+# Template
+{{ doppler "API_KEY" }}
+{{ doppler "DB_PASSWORD" }}
+```
+
+```text Explicit Project/Config
+{{ doppler "API_KEY" "my-app" "prod" }}
+{{ doppler "DB_PASSWORD" "my-app" "staging" }}
+```
+</CodeGroup>
+
+### Database Configuration
+
+<CodeGroup>
+```bash Store in Doppler
+# Set secrets in Doppler
+doppler secrets set DB_HOST=db.example.com
+doppler secrets set DB_PORT=5432
+doppler secrets set DB_USERNAME=app_user
+doppler secrets set DB_PASSWORD=super_secret_password
+doppler secrets set DB_NAME=production_db
+```
+
+```text Use in Template
+# ~/.config/db/config.yml.tmpl
+production:
+  host: {{ doppler "DB_HOST" }}
+  port: {{ doppler "DB_PORT" }}
+  username: {{ doppler "DB_USERNAME" }}
+  password: {{ doppler "DB_PASSWORD" }}
+  database: {{ doppler "DB_NAME" }}
+```
+</CodeGroup>
+
+### Using dopplerProjectJson
+
+```text ~/.config/app/config.yml.tmpl
+{{ $secrets := dopplerProjectJson -}}
+
+api:
+  key: {{ $secrets.API_KEY }}
+  endpoint: {{ $secrets.API_ENDPOINT }}
+
+database:
+  host: {{ $secrets.DB_HOST }}
+  username: {{ $secrets.DB_USERNAME }}
+  password: {{ $secrets.DB_PASSWORD }}
+
+redis:
+  url: {{ $secrets.REDIS_URL }}
+```
+
+### Git Configuration
+
+```bash
+doppler secrets set GIT_NAME="John Doe"
+doppler secrets set GIT_EMAIL="john@example.com"
+doppler secrets set GIT_SIGNING_KEY="0x1234567890ABCDEF"
+```
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ doppler "GIT_NAME" }}
+    email = {{ doppler "GIT_EMAIL" }}
+    signingkey = {{ doppler "GIT_SIGNING_KEY" }}
+```
+
+### AWS Credentials
+
+```bash
+doppler secrets set AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+doppler secrets set AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG
+doppler secrets set AWS_REGION=us-east-1
+```
+
+```text ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ doppler "AWS_ACCESS_KEY_ID" }}
+aws_secret_access_key = {{ doppler "AWS_SECRET_ACCESS_KEY" }}
+region = {{ doppler "AWS_REGION" }}
+```
+
+### Multiple API Keys
+
+```text ~/.config/api-keys.env.tmpl
+{{ $secrets := dopplerProjectJson -}}
+
+# Version Control
+GITHUB_TOKEN={{ $secrets.GITHUB_TOKEN }}
+GITLAB_TOKEN={{ $secrets.GITLAB_TOKEN }}
+
+# Cloud Providers
+AWS_ACCESS_KEY_ID={{ $secrets.AWS_ACCESS_KEY_ID }}
+AWS_SECRET_ACCESS_KEY={{ $secrets.AWS_SECRET_ACCESS_KEY }}
+DIGITALOCEAN_TOKEN={{ $secrets.DIGITALOCEAN_TOKEN }}
+
+# AI Services
+OPENAI_API_KEY={{ $secrets.OPENAI_API_KEY }}
+ANTHROPIC_API_KEY={{ $secrets.ANTHROPIC_API_KEY }}
+
+# Payment Processing
+STRIPE_SECRET_KEY={{ $secrets.STRIPE_SECRET_KEY }}
+STRIPE_PUBLISHABLE_KEY={{ $secrets.STRIPE_PUBLISHABLE_KEY }}
+```
+
+### NPM Configuration
+
+```bash
+doppler secrets set NPM_TOKEN=npm_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+doppler secrets set NPM_EMAIL=user@example.com
+```
+
+```text ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ doppler "NPM_TOKEN" }}
+email={{ doppler "NPM_EMAIL" }}
+```
+
+### JSON Secrets
+
+Doppler can store JSON data:
+
+```bash
+doppler secrets set SERVICE_CONFIG='{"api_key": "secret", "endpoint": "https://api.example.com"}'
+```
+
+```text ~/.config/app/config.yml.tmpl
+{{ $config := doppler "SERVICE_CONFIG" | fromJson -}}
+
+service:
+  api_key: {{ $config.api_key }}
+  endpoint: {{ $config.endpoint }}
+```
+
+## Environment-Specific Secrets
+
+Doppler excels at managing secrets across environments:
+
+### Setup Multiple Configs
+
+```bash
+# Development
+doppler configure set config dev
+doppler secrets set API_KEY=dev_key_here
+doppler secrets set DB_PASSWORD=dev_password
+
+# Staging  
+doppler configure set config stg
+doppler secrets set API_KEY=staging_key_here
+doppler secrets set DB_PASSWORD=staging_password
+
+# Production
+doppler configure set config prd
+doppler secrets set API_KEY=production_key_here
+doppler secrets set DB_PASSWORD=production_password
+```
+
+### Use in Templates
+
+```text ~/.config/app/config.yml.tmpl
+{{ if eq .chezmoi.hostname "prod-server" -}}
+# Production
+api_key: {{ doppler "API_KEY" "my-app" "prd" }}
+db_password: {{ doppler "DB_PASSWORD" "my-app" "prd" }}
+{{ else if eq .chezmoi.hostname "staging-server" -}}
+# Staging
+api_key: {{ doppler "API_KEY" "my-app" "stg" }}
+db_password: {{ doppler "DB_PASSWORD" "my-app" "stg" }}
+{{ else -}}
+# Development
+api_key: {{ doppler "API_KEY" "my-app" "dev" }}
+db_password: {{ doppler "DB_PASSWORD" "my-app" "dev" }}
+{{ end }}
+```
+
+## Performance: Caching
+
+chezmoi caches all secrets from a project/config combination:
+
+- First call to `doppler` or `dopplerProjectJson` fetches all secrets
+- Subsequent calls for the same project/config use the cache
+- No additional API calls for multiple secrets from the same config
+
+```text
+# Single API call fetches all secrets
+{{ doppler "SECRET_1" }}
+{{ doppler "SECRET_2" }}  // Uses cache
+{{ doppler "SECRET_3" }}  // Uses cache
+```
+
+## Complete Examples
+
+### Full Application Configuration
+
+```text ~/.config/app/config.yml.tmpl
+{{ $secrets := dopplerProjectJson -}}
+
+application:
+  name: {{ $secrets.APP_NAME }}
+  environment: {{ $secrets.ENVIRONMENT }}
+  debug: {{ $secrets.DEBUG }}
+
+server:
+  host: {{ $secrets.SERVER_HOST }}
+  port: {{ $secrets.SERVER_PORT }}
+
+database:
+  host: {{ $secrets.DB_HOST }}
+  port: {{ $secrets.DB_PORT }}
+  username: {{ $secrets.DB_USERNAME }}
+  password: {{ $secrets.DB_PASSWORD }}
+  database: {{ $secrets.DB_NAME }}
+  ssl_mode: {{ $secrets.DB_SSL_MODE }}
+
+redis:
+  host: {{ $secrets.REDIS_HOST }}
+  port: {{ $secrets.REDIS_PORT }}
+  password: {{ $secrets.REDIS_PASSWORD }}
+
+aws:
+  region: {{ $secrets.AWS_REGION }}
+  access_key_id: {{ $secrets.AWS_ACCESS_KEY_ID }}
+  secret_access_key: {{ $secrets.AWS_SECRET_ACCESS_KEY }}
+
+auth:
+  jwt_secret: {{ $secrets.JWT_SECRET }}
+  session_secret: {{ $secrets.SESSION_SECRET }}
+
+api_keys:
+  github: {{ $secrets.GITHUB_TOKEN }}
+  stripe: {{ $secrets.STRIPE_SECRET_KEY }}
+  sendgrid: {{ $secrets.SENDGRID_API_KEY }}
+```
+
+### Kubernetes ConfigMap
+
+```text ~/k8s/configmap.yaml.tmpl
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  DATABASE_URL: {{ doppler "DATABASE_URL" }}
+  REDIS_URL: {{ doppler "REDIS_URL" }}
+  API_KEY: {{ doppler "API_KEY" }}
+```
+
+## Managing Secrets in Doppler
+
+### Set Secrets
+
+```bash
+# Single secret
+doppler secrets set API_KEY=secret_value
+
+# Multiple secrets
+doppler secrets set KEY1=value1 KEY2=value2 KEY3=value3
+
+# From file
+doppler secrets set MY_SECRET="$(cat secret.txt)"
+
+# From stdin
+echo "secret_value" | doppler secrets set API_KEY
+```
+
+### List Secrets
+
+```bash
+doppler secrets
+```
+
+### Download Secrets
+
+```bash
+# As JSON
+doppler secrets download --no-file --format json
+
+# As environment variables
+doppler secrets download --no-file --format env
+```
+
+### Delete Secrets
+
+```bash
+doppler secrets delete API_KEY
+```
+
+## Service Tokens
+
+For CI/CD or production servers, use service tokens:
+
+```bash
+# Create a service token
+doppler configs tokens create production-server --config prd
+
+# Use the token
+export DOPPLER_TOKEN=dp.st.xxx
+```
+
+With a service token set, chezmoi will automatically use it.
+
+## Troubleshooting
+
+### Not Logged In
+
+Log in to Doppler:
+
+```bash
+doppler login
+```
+
+### Project/Config Not Set
+
+Configure project and config:
+
+```bash
+doppler setup
+# or
+doppler configure set project my-project
+doppler configure set config dev
+```
+
+### Secret Not Found
+
+List all secrets:
+
+```bash
+doppler secrets
+```
+
+### Command Not Found
+
+Ensure Doppler CLI is installed:
+
+```bash
+which doppler
+doppler --version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ doppler "API_KEY" }}'
+chezmoi execute-template '{{ dopplerProjectJson.API_KEY }}'
+```
+
+### Verify Doppler Access
+
+```bash
+doppler secrets download --no-file --format json | jq .
+```
+
+## Best Practices
+
+1. **Use environments**: Leverage Doppler's config system (dev, staging, prod)
+2. **Set defaults**: Configure project/config in chezmoi.toml
+3. **Use dopplerProjectJson**: More efficient than multiple doppler calls
+4. **Service tokens**: Use service tokens for automated deployments
+5. **Name consistently**: Use UPPER_SNAKE_CASE for secret names
+6. **Organize projects**: Separate projects for different applications
+7. **Access control**: Use Doppler's RBAC for team access
+8. **Secret rotation**: Regularly rotate sensitive credentials
+9. **Audit logs**: Monitor secret access in Doppler dashboard
+10. **Local development**: Use personal config for local dev secrets
+
+## See Also
+
+- [Doppler Documentation](https://docs.doppler.com/)
+- [Doppler CLI Reference](https://docs.doppler.com/docs/cli)
+- [Service Tokens](https://docs.doppler.com/docs/service-tokens)
+- [Template Functions Reference](/reference/templates/password-manager-functions#doppler)

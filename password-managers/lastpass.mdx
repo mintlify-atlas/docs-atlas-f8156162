@@ -1,0 +1,346 @@
+---
+title: LastPass
+description: Integrate LastPass with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [LastPass](https://lastpass.com/) using the [LastPass CLI](https://lastpass.github.io/lastpass-cli/lpass.1.html) to expose data as template functions.
+
+## Setup
+
+### Install LastPass CLI
+
+<CodeGroup>
+```bash macOS
+brew install lastpass-cli
+```
+
+```bash Ubuntu/Debian
+sudo apt install lastpass-cli
+```
+
+```bash Fedora
+sudo dnf install lastpass-cli
+```
+</CodeGroup>
+
+### Log In
+
+```bash
+lpass login $LASTPASS_USERNAME
+```
+
+Enter your master password when prompted.
+
+### Verify Setup
+
+Check that `lpass` is working:
+
+```bash
+lpass show --json $LASTPASS_ENTRY_ID
+```
+
+## Template Functions
+
+### `lastpass`
+
+Get structured data from a LastPass entry:
+
+```text
+{{ (index (lastpass "GitHub") 0).password }}
+```
+
+Returns an array of objects from `lpass show --json id`.
+
+### `lastpassRaw`
+
+Get raw note data without parsing:
+
+```text
+{{ (index (lastpassRaw "SSH Private Key") 0).note }}
+```
+
+## Entry Specification
+
+LastPass entries can be specified by:
+- **Name**: `"GitHub"`
+- **ID**: `"1234567890"`
+- **URL**: `"github.com"`
+- **Group**: `"Work/GitHub"`
+
+See [LastPass Entry Specification](https://lastpass.github.io/lastpass-cli/lpass.1.html#_entry_specification) for details.
+
+## Usage Examples
+
+### Basic Credentials
+
+<CodeGroup>
+```text Password
+# Access password from GitHub entry
+githubPassword = {{ (index (lastpass "GitHub") 0).password | quote }}
+```
+
+```text Username and Password
+# ~/.netrc.tmpl
+machine github.com
+login {{ (index (lastpass "GitHub") 0).username }}
+password {{ (index (lastpass "GitHub") 0).password }}
+```
+</CodeGroup>
+
+### Git Configuration
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ (index (lastpass "Git Config") 0).username }}
+    email = {{ (index (lastpass "Git Config") 0).note.email }}
+    signingkey = {{ (index (lastpass "Git Config") 0).note.gpgKey }}
+
+[github]
+    user = {{ (index (lastpass "GitHub") 0).username }}
+```
+
+### SSH Private Key from Notes
+
+LastPass automatically parses notes as colon-separated key-value pairs:
+
+```text ~/.ssh/id_rsa.tmpl
+{{ (index (lastpass "SSH") 0).note.privateKey }}
+```
+
+If your LastPass note looks like:
+
+```
+Private Key: -----BEGIN RSA PRIVATE KEY-----
+MIIE...
+Public Key: ssh-rsa AAAA...
+```
+
+Keys in notes written as `CamelCase Words` are converted to `camelCaseWords`.
+
+### Raw Note Data
+
+If the note doesn't contain key-value pairs:
+
+```text ~/.ssh/id_rsa.tmpl
+{{ (index (lastpassRaw "SSH Private Key") 0).note }}
+```
+
+### AWS Credentials
+
+<CodeGroup>
+```text From Fields
+# ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ (index (lastpass "AWS Personal") 0).username }}
+aws_secret_access_key = {{ (index (lastpass "AWS Personal") 0).password }}
+
+[work]
+aws_access_key_id = {{ (index (lastpass "AWS Work") 0).username }}
+aws_secret_access_key = {{ (index (lastpass "AWS Work") 0).password }}
+```
+
+```text From Notes
+# ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ (index (lastpass "AWS") 0).note.accessKeyId }}
+aws_secret_access_key = {{ (index (lastpass "AWS") 0).note.secretAccessKey }}
+region = {{ (index (lastpass "AWS") 0).note.region }}
+```
+</CodeGroup>
+
+### API Tokens
+
+```text ~/.config/tokens.env.tmpl
+# GitHub
+GITHUB_TOKEN={{ (index (lastpass "GitHub API") 0).password }}
+GH_TOKEN={{ (index (lastpass "GitHub API") 0).password }}
+
+# GitLab
+GITLAB_TOKEN={{ (index (lastpass "GitLab API") 0).password }}
+
+# OpenAI
+OPENAI_API_KEY={{ (index (lastpass "OpenAI") 0).password }}
+
+# Stripe
+STRIPE_SECRET_KEY={{ (index (lastpass "Stripe") 0).note.secretKey }}
+STRIPE_PUBLISHABLE_KEY={{ (index (lastpass "Stripe") 0).note.publishableKey }}
+```
+
+### Database Configuration
+
+```text ~/.config/db/config.yml.tmpl
+production:
+  host: {{ (index (lastpass "Production DB") 0).note.host }}
+  port: {{ (index (lastpass "Production DB") 0).note.port }}
+  username: {{ (index (lastpass "Production DB") 0).username }}
+  password: {{ (index (lastpass "Production DB") 0).password }}
+  database: {{ (index (lastpass "Production DB") 0).note.database }}
+
+development:
+  host: localhost
+  port: 5432
+  username: {{ (index (lastpass "Dev DB") 0).username }}
+  password: {{ (index (lastpass "Dev DB") 0).password }}
+  database: app_dev
+```
+
+### NPM Configuration
+
+```text ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ (index (lastpass "NPM") 0).password }}
+email={{ (index (lastpass "NPM") 0).username }}
+```
+
+## Advanced Usage
+
+### Multiple Entries
+
+If a search returns multiple entries:
+
+```text
+{{ range (lastpass "github") -}}
+Entry: {{ .name }}
+Username: {{ .username }}
+Password: {{ .password }}
+{{ end }}
+```
+
+### Accessing Nested Fields
+
+```text
+# All note fields for an entry
+{{ range $key, $value := (index (lastpass "Entry") 0).note -}}
+{{ $key }}: {{ $value }}
+{{ end }}
+```
+
+### Using Entry IDs
+
+Find the entry ID:
+
+```bash
+lpass ls
+```
+
+Then reference by ID:
+
+```text
+{{ (index (lastpass "1234567890") 0).password }}
+```
+
+### Conditional Access
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ (index (lastpass "Git") 0).username }}
+{{- if (index (lastpass "Git") 0).note.email }}
+    email = {{ (index (lastpass "Git") 0).note.email }}
+{{- end }}
+{{- if (index (lastpass "Git") 0).note.signingkey }}
+    signingkey = {{ (index (lastpass "Git") 0).note.signingkey }}
+{{- end }}
+```
+
+## Structuring Notes in LastPass
+
+For best results, structure your notes as key-value pairs:
+
+```
+API Key: sk-abc123...
+Endpoint: https://api.example.com
+Region: us-east-1
+Environment: production
+```
+
+These will be accessible as:
+
+```text
+{{ (index (lastpass "Service") 0).note.apiKey }}
+{{ (index (lastpass "Service") 0).note.endpoint }}
+{{ (index (lastpass "Service") 0).note.region }}
+{{ (index (lastpass "Service") 0).note.environment }}
+```
+
+## Configuration
+
+### Custom Command
+
+If `lpass` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[lastpass]
+    command = "/custom/path/to/lpass"
+```
+
+## Troubleshooting
+
+### Not Logged In
+
+If you get "Error: Could not find decryption key":
+
+```bash
+lpass login $LASTPASS_USERNAME
+```
+
+### Session Expired
+
+Log in again:
+
+```bash
+lpass logout
+lpass login $LASTPASS_USERNAME
+```
+
+### Entry Not Found
+
+List all entries to find the correct name:
+
+```bash
+lpass ls
+```
+
+Or search for entries:
+
+```bash
+lpass ls | grep -i github
+```
+
+### Command Not Found
+
+Ensure LastPass CLI is installed:
+
+```bash
+which lpass
+lpass --version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ (index (lastpass "test") 0).password }}'
+```
+
+### Verify Entry Data
+
+Check what data is available:
+
+```bash
+lpass show --json "Entry Name" | jq .
+```
+
+## Best Practices
+
+1. **Use descriptive names**: Name entries clearly for easy reference
+2. **Structure notes**: Use key-value format in notes for easy parsing
+3. **Use folders**: Organize entries in folders (`Work/GitHub`, `Personal/AWS`)
+4. **Test entries**: Verify entries are accessible before using in templates
+5. **Stay logged in**: Keep your LastPass session active on trusted machines
+6. **Use entry IDs**: For stability, consider using entry IDs instead of names
+
+## See Also
+
+- [LastPass CLI Documentation](https://lastpass.github.io/lastpass-cli/lpass.1.html)
+- [Entry Specification](https://lastpass.github.io/lastpass-cli/lpass.1.html#_entry_specification)
+- [Template Functions Reference](/reference/templates/password-manager-functions#lastpass)

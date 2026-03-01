@@ -1,0 +1,154 @@
+---
+title: Releases
+description: How chezmoi releases are created and published
+---
+
+Releases are managed with [goreleaser](https://goreleaser.com/), providing automated builds, packaging, and distribution across multiple platforms.
+
+## Testing a Release
+
+To build a test release without publishing (Ubuntu Linux only), first ensure that the `musl-tools` and `snapcraft` packages are installed:
+
+```sh
+sudo apt-get install musl-tools snapcraft
+```
+
+Then run:
+
+```sh
+make test-release
+```
+
+This creates a local build with all distribution formats but skips publishing and code signing.
+
+## Publishing a Release
+
+Publish a new release by creating and pushing a tag:
+
+```sh
+git tag v1.2.3
+git push --tags
+```
+
+This triggers a [GitHub Action](https://github.com/twpayne/chezmoi/actions) that:
+
+1. Builds archives, packages, and snaps for all supported platforms
+2. Creates a new [GitHub Release](https://github.com/twpayne/chezmoi/releases)
+3. Publishes to package repositories
+4. Deploys the [website](https://chezmoi.io)
+
+## Distribution Channels
+
+### Snaps
+
+Publishing [Snaps](https://snapcraft.io/) requires a `SNAPCRAFT_STORE_CREDENTIALS` [repository secret](https://github.com/twpayne/chezmoi/settings/secrets/actions).
+
+#### Credential Expiration
+
+Snapcraft store credentials periodically expire. This is visible in the release GitHub Action reporting:
+
+```text
+Run snapcraft whoami
+Store operation failed:
+- macaroon-authorization-required: The request is missing an Authorization header field containing a valid macaroon
+```
+
+#### Refreshing Credentials
+
+Create new snapcraft store credentials by running:
+
+```sh
+snapcraft export-login --snaps=chezmoi --channels=stable,candidate,beta,edge --acls=package_upload -
+```
+
+<Warning>
+This command requires a Ubuntu machine with snapcraft installed and a keyring, which is typically not available over SSH connections.
+</Warning>
+
+Login to a GNOME session on a Ubuntu machine and run:
+
+```sh
+sudo snap install --classic snapcraft
+snapcraft login
+```
+
+### Homebrew
+
+[Homebrew](https://brew.sh/) automation automatically detects new releases of chezmoi within a few hours and opens a pull request in [github.com/Homebrew/homebrew-core](https://github.com/Homebrew/homebrew-core) to bump the version.
+
+If needed, the pull request can be created manually:
+
+```sh
+brew bump-formula-pr --tag=v1.2.3 chezmoi
+```
+
+### Scoop
+
+chezmoi is in [Scoop](https://scoop.sh/)'s Main bucket. Scoop's automation automatically detects new releases within a few hours.
+
+## Signing
+
+chezmoi uses [GoReleaser's support for signing](https://goreleaser.com/customization/sign/) to sign the checksums of its release assets with [cosign](https://github.com/sigstore/cosign).
+
+### Security Details
+
+<AccordionGroup>
+  <Accordion title="Key Generation">
+    - The cosign private key was generated with cosign v1.12.1
+    - Generated on a private recently-installed Ubuntu 22.04.1 system
+    - Single user system with all available updates applied
+  </Accordion>
+
+  <Accordion title="Key Protection">
+    - The private key uses a long (more than 32 character) password
+    - Password generated locally by a password manager
+    - The password-protected private key is stored in chezmoi's public GitHub repo
+    - The private key's password is stored as a GitHub Actions secret
+    - Only available to the `release` step of `release` job of the `main` workflow
+  </Accordion>
+
+  <Accordion title="Public Key Distribution">
+    - The cosign public key is included in the release assets
+    - Also uploaded to [https://chezmoi.io/cosign.pub](https://chezmoi.io/cosign.pub)
+    - Served by [GitHub pages](https://pages.github.com/)
+    - Has equivalent security to the [GitHub Releases page](https://github.com/twpayne/chezmoi/releases)
+  </Accordion>
+</AccordionGroup>
+
+### Verifying Releases
+
+Users can verify release checksums using cosign:
+
+```sh
+# Download the public key
+curl -O https://chezmoi.io/cosign.pub
+
+# Verify the checksums
+cosign verify-blob \
+  --key cosign.pub \
+  --signature chezmoi_${VERSION}_checksums.txt.sig \
+  chezmoi_${VERSION}_checksums.txt
+```
+
+## Release Checklist
+
+Before creating a release:
+
+- [ ] All tests pass on main branch
+- [ ] Documentation is up to date
+- [ ] CHANGELOG is updated
+- [ ] Version number follows semantic versioning
+- [ ] No open critical issues
+
+After creating a release:
+
+- [ ] GitHub Release is created successfully
+- [ ] All distribution formats are available
+- [ ] Checksums are signed
+- [ ] Website is deployed
+- [ ] Package repositories are updated
+
+## See Also
+
+- [Packaging](/developer/packaging) - Guidelines for packaging chezmoi
+- [Install Script](/developer/install-script) - Install script generation

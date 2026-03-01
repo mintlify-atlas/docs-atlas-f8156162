@@ -1,0 +1,462 @@
+---
+title: Azure Key Vault
+description: Integrate Azure Key Vault with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/secrets/about-secrets) to retrieve secrets stored in Azure.
+
+## Setup
+
+### Install Azure CLI
+
+<CodeGroup>
+```bash macOS
+brew install azure-cli
+```
+
+```bash Ubuntu/Debian
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+```bash Windows
+winget install -e --id Microsoft.AzureCLI
+```
+</CodeGroup>
+
+### Log In
+
+Authenticate with Azure:
+
+```bash
+az login
+```
+
+Or use [alternative authentication methods](https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication?tabs=bash):
+
+<CodeGroup>
+```bash Service Principal
+az login --service-principal \
+    --username $APP_ID \
+    --password $PASSWORD \
+    --tenant $TENANT_ID
+```
+
+```bash Managed Identity
+# Automatically used on Azure VMs with managed identity enabled
+az login --identity
+```
+</CodeGroup>
+
+### Set Permissions
+
+Your user or service principal needs the **Key Vault Secrets User** RBAC role:
+
+```bash
+az role assignment create \
+    --role "Key Vault Secrets User" \
+    --assignee user@example.com \
+    --scope /subscriptions/{subscription-id}/resourceGroups/{resource-group}/providers/Microsoft.KeyVault/vaults/{vault-name}
+```
+
+## Configuration
+
+Set a default vault in your chezmoi config:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[azureKeyVault]
+    defaultVault = "contoso-vault2"
+```
+
+## Template Function
+
+### `azureKeyVault`
+
+Retrieve a secret from Azure Key Vault:
+
+```text
+{{ azureKeyVault "secret-name" }}
+```
+
+With explicit vault name:
+
+```text
+{{ azureKeyVault "secret-name" "vault-name" }}
+```
+
+Using vault alias from config:
+
+```text
+{{ azureKeyVault "secret-name" .vaultAlias }}
+```
+
+## Usage Examples
+
+### Using Default Vault
+
+<CodeGroup>
+```toml Configuration
+# ~/.config/chezmoi/chezmoi.toml
+[azureKeyVault]
+    defaultVault = "my-vault"
+```
+
+```text Template
+# ~/.config/app/config.yml.tmpl
+api_key: {{ azureKeyVault "api-key" }}
+db_password: {{ azureKeyVault "db-password" }}
+```
+</CodeGroup>
+
+### Using Explicit Vault Names
+
+```text ~/.config/app/config.yml.tmpl
+# Production secrets from prod vault
+prod_api_key: {{ azureKeyVault "api-key" "production-vault" }}
+prod_db_password: {{ azureKeyVault "db-password" "production-vault" }}
+
+# Development secrets from dev vault
+dev_api_key: {{ azureKeyVault "api-key" "development-vault" }}
+dev_db_password: {{ azureKeyVault "db-password" "development-vault" }}
+```
+
+### Using Vault Aliases
+
+Define vault aliases in your config:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[azureKeyVault]
+    defaultVault = "personal-vault"
+
+[data]
+    prodVault = "production-vault"
+    devVault = "development-vault"
+    sharedVault = "team-shared-vault"
+```
+
+Use in templates:
+
+```text ~/.config/app/config.yml.tmpl
+production:
+  api_key: {{ azureKeyVault "api-key" .prodVault }}
+  db_password: {{ azureKeyVault "db-password" .prodVault }}
+
+development:
+  api_key: {{ azureKeyVault "api-key" .devVault }}
+  db_password: {{ azureKeyVault "db-password" .devVault }}
+
+shared:
+  license_key: {{ azureKeyVault "license-key" .sharedVault }}
+```
+
+### Database Credentials
+
+```text ~/.config/db/config.yml.tmpl
+production:
+  host: {{ azureKeyVault "prod-db-host" }}
+  port: 5432
+  username: {{ azureKeyVault "prod-db-username" }}
+  password: {{ azureKeyVault "prod-db-password" }}
+  database: {{ azureKeyVault "prod-db-name" }}
+
+development:
+  host: localhost
+  port: 5432
+  username: devuser
+  password: {{ azureKeyVault "dev-db-password" }}
+  database: myapp_dev
+```
+
+### API Keys
+
+```text ~/.config/api-keys.env.tmpl
+# Cloud providers
+AZURE_SUBSCRIPTION_ID={{ azureKeyVault "azure-subscription-id" }}
+AZURE_CLIENT_ID={{ azureKeyVault "azure-client-id" }}
+AZURE_CLIENT_SECRET={{ azureKeyVault "azure-client-secret" }}
+
+# Third-party APIs
+GITHUB_TOKEN={{ azureKeyVault "github-token" }}
+OPENAI_API_KEY={{ azureKeyVault "openai-api-key" }}
+STRIPE_SECRET_KEY={{ azureKeyVault "stripe-secret-key" }}
+```
+
+### SSH Keys
+
+<CodeGroup>
+```bash Store in Key Vault
+# Store SSH private key
+az keyvault secret set \
+    --vault-name my-vault \
+    --name ssh-private-key \
+    --file ~/.ssh/id_rsa
+```
+
+```text Use in Template
+# ~/.ssh/work_id_rsa.tmpl
+{{ azureKeyVault "ssh-private-key" }}
+```
+</CodeGroup>
+
+### Git Configuration
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ azureKeyVault "git-name" }}
+    email = {{ azureKeyVault "git-email" }}
+    signingkey = {{ azureKeyVault "git-signing-key" }}
+
+[github]
+    user = {{ azureKeyVault "github-username" }}
+
+[credential]
+    helper = store
+```
+
+### NPM Configuration
+
+```text ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ azureKeyVault "npm-token" }}
+email={{ azureKeyVault "npm-email" }}
+```
+
+### Kubernetes Config
+
+```text ~/.kube/config.tmpl
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: {{ azureKeyVault "k8s-server-url" }}
+    certificate-authority-data: {{ azureKeyVault "k8s-ca-cert" }}
+  name: production
+users:
+- name: admin
+  user:
+    token: {{ azureKeyVault "k8s-admin-token" }}
+contexts:
+- context:
+    cluster: production
+    user: admin
+  name: prod-context
+current-context: prod-context
+```
+
+## Managing Secrets in Azure Key Vault
+
+### Create Secrets
+
+<CodeGroup>
+```bash Simple Secret
+az keyvault secret set \
+    --vault-name my-vault \
+    --name api-key \
+    --value "secret-value-here"
+```
+
+```bash From File
+az keyvault secret set \
+    --vault-name my-vault \
+    --name ssh-key \
+    --file ~/.ssh/id_rsa
+```
+
+```bash From Stdin
+echo "secret-value" | az keyvault secret set \
+    --vault-name my-vault \
+    --name password \
+    --file /dev/stdin
+```
+</CodeGroup>
+
+### List Secrets
+
+```bash
+az keyvault secret list --vault-name my-vault --output table
+```
+
+### Show Secret Value
+
+```bash
+az keyvault secret show \
+    --vault-name my-vault \
+    --name api-key \
+    --query value \
+    --output tsv
+```
+
+### Delete Secrets
+
+```bash
+az keyvault secret delete \
+    --vault-name my-vault \
+    --name old-secret
+```
+
+## Advanced Usage
+
+### Environment-Specific Vaults
+
+```text ~/.config/app/config.yml.tmpl
+{{ if eq .chezmoi.hostname "prod-server" -}}
+# Production
+api_key: {{ azureKeyVault "api-key" "production-vault" }}
+{{ else if eq .chezmoi.hostname "staging-server" -}}
+# Staging
+api_key: {{ azureKeyVault "api-key" "staging-vault" }}
+{{ else -}}
+# Development
+api_key: {{ azureKeyVault "api-key" "development-vault" }}
+{{ end }}
+```
+
+### Secret Versioning
+
+By default, chezmoi retrieves the latest version. Azure Key Vault maintains version history automatically.
+
+### Multi-Vault Configuration
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[azureKeyVault]
+    defaultVault = "personal-vault"
+
+[data]
+    # Different vaults for different purposes
+    personalVault = "personal-vault"
+    workVault = "work-vault"
+    sharedVault = "team-vault"
+    prodVault = "production-vault"
+    stagingVault = "staging-vault"
+    devVault = "development-vault"
+```
+
+## Complete Examples
+
+### Multi-Service Application Config
+
+```text ~/.config/services.yml.tmpl
+services:
+  database:
+    host: {{ azureKeyVault "db-host" }}
+    username: {{ azureKeyVault "db-username" }}
+    password: {{ azureKeyVault "db-password" }}
+  
+  redis:
+    host: {{ azureKeyVault "redis-host" }}
+    password: {{ azureKeyVault "redis-password" }}
+  
+  storage:
+    account_name: {{ azureKeyVault "storage-account" }}
+    account_key: {{ azureKeyVault "storage-key" }}
+  
+  api:
+    github: {{ azureKeyVault "github-token" }}
+    openai: {{ azureKeyVault "openai-key" }}
+    stripe: {{ azureKeyVault "stripe-secret" }}
+```
+
+### Azure Service Connection
+
+```text ~/.azure/credentials.tmpl
+[default]
+subscription_id = {{ azureKeyVault "azure-subscription-id" }}
+client_id = {{ azureKeyVault "azure-client-id" }}
+client_secret = {{ azureKeyVault "azure-client-secret" }}
+tenant_id = {{ azureKeyVault "azure-tenant-id" }}
+```
+
+## RBAC Permissions
+
+Required Azure RBAC role:
+
+- **Key Vault Secrets User**: Read secret contents
+
+Assign via Azure Portal, CLI, or ARM template:
+
+```bash
+az role assignment create \
+    --role "Key Vault Secrets User" \
+    --assignee-object-id $OBJECT_ID \
+    --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.KeyVault/vaults/$VAULT_NAME
+```
+
+For service principals:
+
+```bash
+az role assignment create \
+    --role "Key Vault Secrets User" \
+    --assignee $APP_ID \
+    --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.KeyVault/vaults/$VAULT_NAME
+```
+
+## Troubleshooting
+
+### Access Denied
+
+Ensure you have the correct RBAC role:
+
+```bash
+az role assignment list \
+    --scope /subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.KeyVault/vaults/$VAULT \
+    --assignee user@example.com
+```
+
+### Vault Not Found
+
+Verify the vault exists and you have access:
+
+```bash
+az keyvault list --output table
+```
+
+### Secret Not Found
+
+List secrets in the vault:
+
+```bash
+az keyvault secret list --vault-name my-vault
+```
+
+### Authentication Failed
+
+Re-authenticate:
+
+```bash
+az logout
+az login
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ azureKeyVault "test-secret" }}'
+```
+
+## Best Practices
+
+1. **Use RBAC**: Prefer RBAC over access policies for granular control
+2. **Separate vaults**: Use different vaults for different environments
+3. **Least privilege**: Grant minimum required permissions
+4. **Enable soft delete**: Protect against accidental deletion
+5. **Enable purge protection**: Prevent permanent deletion during retention period
+6. **Use managed identities**: On Azure VMs, use managed identities instead of service principals
+7. **Monitor access**: Enable diagnostic logs and alerts
+8. **Use private endpoints**: Access Key Vault privately from VNet
+9. **Rotate secrets**: Implement secret rotation policies
+10. **Tag secrets**: Use tags for organization and cost tracking
+
+## Cost Considerations
+
+Azure Key Vault pricing:
+- **Standard tier**: $0.03 per 10,000 operations
+- **Premium tier**: $0.03 per 10,000 operations + HSM operations
+
+Chezmoi caches secrets to minimize operations.
+
+## See Also
+
+- [Azure Key Vault Documentation](https://learn.microsoft.com/en-us/azure/key-vault/)
+- [Azure CLI Key Vault Commands](https://learn.microsoft.com/en-us/cli/azure/keyvault)
+- [Azure Authentication](https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication)
+- [AWS Secrets Manager](/password-managers/aws-secrets-manager) - AWS equivalent

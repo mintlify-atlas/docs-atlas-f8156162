@@ -1,0 +1,577 @@
+---
+title: Configuring External Tools
+description: Customize diff, merge, and editor tools used by chezmoi
+---
+
+chezmoi integrates with external tools to provide a better user experience. This guide covers how to configure your preferred diff tool, merge tool, editor, and other utilities.
+
+## Editor Configuration
+
+### Setting Your Editor
+
+By default, chezmoi uses the editor specified by the `$VISUAL` or `$EDITOR` environment variables, falling back to:
+- `vi` on Unix-like systems
+- `notepad.exe` on Windows
+
+You can override this in your config file:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    command = "vim"
+```
+
+Or set it with command-line arguments:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    command = "code"
+    args = ["--wait"]
+```
+
+### VSCode / VSCodium
+
+VSCode requires the `--wait` flag to keep chezmoi from continuing before you finish editing:
+
+```bash
+# Set via environment variable
+export EDITOR="code --wait"
+```
+
+Or in your config:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    command = "code"
+    args = ["--wait"]
+```
+
+For VSCodium:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    command = "codium"
+    args = ["--wait"]
+```
+
+### Vim
+
+Vim requires the `-f` (foreground) flag:
+
+```bash
+export EDITOR="vim -f"
+```
+
+Or:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    command = "vim"
+    args = ["-f"]
+```
+
+#### Vim Plugins
+
+Enhance your chezmoi workflow with these Vim plugins:
+
+**[chezmoi.vim](https://github.com/alker0/chezmoi.vim)** - Syntax highlighting for chezmoi files including templates:
+
+```vim
+Plug 'alker0/chezmoi.vim'
+```
+
+**[vim-chezmoi](https://github.com/Lilja/vim-chezmoi)** - Automatically apply changes when saving with `chezmoi edit`:
+
+```vim
+Plug 'Lilja/vim-chezmoi'
+```
+
+**[chezmoi.nvim](https://github.com/xvzc/chezmoi.nvim)** - Edit and auto-apply chezmoi-managed files:
+
+```lua
+use 'xvzc/chezmoi.nvim'
+```
+
+#### Auto-Apply on Save
+
+You can also configure Vim to run `chezmoi apply` automatically. First, disable hardlinking:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    hardlink = false
+```
+
+Then add an autocmd:
+
+```vim title="~/.vimrc"
+autocmd BufWritePost ~/.local/share/chezmoi/* ! chezmoi apply --source-path "%"
+```
+
+### Neovim
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    command = "nvim"
+```
+
+### Emacs
+
+**[chezmoi.el](https://github.com/tuh8888/chezmoi.el)** provides convenience functions for Emacs (available on MELPA):
+
+```elisp
+(use-package chezmoi)
+```
+
+### Helix
+
+Helix 25.01+ works out of the box:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[edit]
+    command = "hx"
+```
+
+## Diff Tool Configuration
+
+### Built-in Diff
+
+By default, chezmoi uses a built-in diff with color output piped through your pager (usually `less`).
+
+If colors aren't displaying correctly, set:
+
+```bash
+export LESS=-R
+```
+
+Or in your config:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+pager = "less -R"
+```
+
+### Custom Diff Tool
+
+Use any diff tool by setting `diff.command` and `diff.args`. The templates variables `.Destination` and `.Target` contain the file paths:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    command = "meld"
+    args = ["--diff", "{{ .Destination }}", "{{ .Target }}"]
+```
+
+**Note:** If you generate your config from a template, escape the braces:
+
+```toml title="~/.local/share/chezmoi/.chezmoi.toml.tmpl"
+[diff]
+    command = "meld"
+    args = ["--diff", {{ printf "%q" "{{ .Destination }}" }}, {{ printf "%q" "{{ .Target }}" }}]
+```
+
+### VSCode as Diff Tool
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    command = "code"
+    args = ["--wait", "--diff", "{{ .Destination }}", "{{ .Target }}"]
+```
+
+For VSCodium:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    command = "codium"
+    args = ["--wait", "--diff", "{{ .Destination }}", "{{ .Target }}"]
+```
+
+### Delta
+
+[Delta](https://dandavison.github.io/delta/) is a syntax-highlighting pager for git, diff, and grep output:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    pager = "delta"
+```
+
+### diff-so-fancy
+
+[diff-so-fancy](https://github.com/so-fancy/diff-so-fancy) makes diffs more readable:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    pager = "diff-so-fancy"
+```
+
+### Meld
+
+[Meld](https://meldmerge.org/) is a visual diff and merge tool:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    command = "meld"
+    args = ["--diff", "{{ .Destination }}", "{{ .Target }}"]
+```
+
+### Disable Pager
+
+Disable the pager with a flag:
+
+```bash
+chezmoi diff --no-pager
+```
+
+Or in config:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    pager = ""
+```
+
+### Exclude Scripts from Diff
+
+By default, `chezmoi diff` shows script contents. To exclude them:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    exclude = ["scripts"]
+```
+
+### Exclude Externals from Diff
+
+```bash
+chezmoi diff --exclude=externals
+```
+
+Or:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    exclude = ["externals"]
+```
+
+### Human-Friendly Binary Diffs
+
+chezmoi supports "textconv" to transform binary files before diffing. This is useful for viewing diffs of binary formats.
+
+#### macOS .plist Files
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[[textconv]]
+    pattern = "**/*.plist"
+    command = "plutil"
+    args = ["-convert", "xml1", "-o", "-", "-"]
+```
+
+#### PDF Files
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[[textconv]]
+    pattern = "**/*.pdf"
+    command = "pdftotext"
+    args = ["-", "-"]
+```
+
+#### Images (with exiftool)
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[[textconv]]
+    pattern = "**/*.{jpg,png}"
+    command = "exiftool"
+    args = ["-"]
+```
+
+## Merge Tool Configuration
+
+### Default Merge Tool
+
+By default, chezmoi uses `vimdiff`. Configure a custom merge tool with `merge.command` and `merge.args`:
+
+Templates variables available:
+- `.Destination` - file in destination state
+- `.Source` - file in source state  
+- `.Target` - file in target state
+
+### Neovim
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[merge]
+    command = "nvim"
+    args = ["-d", "{{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]
+```
+
+### VSCode
+
+VSCode requires a wrapper script to provide all four files for 3-way merge:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[merge]
+    command = "bash"
+    args = [
+        "-c",
+        "cp {{ .Target | quote }} {{ printf \"%s.base\" .Target | quote }} && code --new-window --wait --merge {{ .Destination | quote }} {{ .Target | quote }} {{ printf \"%s.base\" .Target | quote }} {{ .Source | quote }}",
+    ]
+```
+
+### Beyond Compare
+
+[Beyond Compare](https://www.scootersoftware.com/) is a commercial diff and merge tool:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[merge]
+    command = "bcomp"
+    args = ["{{ .Destination }}", "{{ .Source }}", "{{ .Target }}", "{{ .Source }}"]
+```
+
+### Meld
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[merge]
+    command = "meld"
+    args = ["{{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]
+```
+
+### KDiff3
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[merge]
+    command = "kdiff3"
+    args = ["{{ .Destination }}", "{{ .Source }}", "{{ .Target }}", "-o", "{{ .Source }}"]
+```
+
+## HTTP/SOCKS5 Proxy
+
+Configure chezmoi to use a proxy for external sources and updates:
+
+### HTTP Proxy
+
+Set environment variables:
+
+```bash
+export HTTP_PROXY=http://proxy.example.com:8080
+export HTTPS_PROXY=http://proxy.example.com:8080
+```
+
+Or in config:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[http]
+    proxy = "http://proxy.example.com:8080"
+```
+
+### SOCKS5 Proxy
+
+```bash
+export ALL_PROXY=socks5://proxy.example.com:1080
+```
+
+## Flatpak Integration
+
+Tools installed via Flatpak require special invocation.
+
+### Wrapper Script Approach (Recommended)
+
+Create a wrapper script with the same name as the command:
+
+```bash title="~/bin/keepassxc-cli"
+#!/bin/bash
+flatpak run --command=keepassxc-cli org.keepassxc.KeePassXC -- "$@"
+```
+
+Make it executable:
+
+```bash
+chmod +x ~/bin/keepassxc-cli
+```
+
+Ensure `~/bin` is in your `$PATH`.
+
+### Direct Configuration
+
+For tools with `.command` and `.args` config options:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[diff]
+    command = "flatpak"
+    args = ["run", "com.vscodium.codium", "--wait", "--diff"]
+```
+
+## Password Manager Integration
+
+chezmoi integrates with many password managers. Each requires configuration:
+
+### 1Password
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[onepassword]
+    command = "op"
+```
+
+### Bitwarden
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[bitwarden]
+    command = "bw"
+```
+
+### KeePassXC
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[keepassxc]
+    command = "keepassxc-cli"
+    database = "/path/to/database.kdbx"
+```
+
+### LastPass
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[lastpass]
+    command = "lpass"
+```
+
+### Pass
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[pass]
+    command = "pass"
+```
+
+## Shell Completion
+
+chezmoi provides shell completion for bash, zsh, fish, and PowerShell.
+
+### Bash
+
+```bash
+# Add to ~/.bashrc
+eval "$(chezmoi completion bash)"
+```
+
+Or install system-wide:
+
+```bash
+chezmoi completion bash | sudo tee /usr/share/bash-completion/completions/chezmoi
+```
+
+### Zsh
+
+```bash
+# Add to ~/.zshrc
+eval "$(chezmoi completion zsh)"
+```
+
+Or add to fpath:
+
+```bash
+chezmoi completion zsh > ~/.zsh/completions/_chezmoi
+```
+
+### Fish
+
+```bash
+chezmoi completion fish | source
+```
+
+Or:
+
+```bash
+chezmoi completion fish > ~/.config/fish/completions/chezmoi.fish
+```
+
+### PowerShell
+
+Add to your PowerShell profile:
+
+```powershell
+chezmoi completion powershell | Out-String | Invoke-Expression
+```
+
+## Script Interpreters
+
+Override the interpreter for run scripts:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[interpreters.ps1]
+    command = "pwsh"
+    args = ["-NoLogo"]
+
+[interpreters.py]
+    command = "python3"
+```
+
+## Custom Umask
+
+Control file permissions:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+umask = 0o022
+```
+
+This prevents group-writeable files (useful for `~/.ssh/config`).
+
+## Pinentry for GPG
+
+Configure pinentry for GPG encryption:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[pinentry]
+    command = "pinentry-mac"
+    args = []
+```
+
+## Warnings Configuration
+
+Disable specific warnings:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[warnings]
+    # Don't warn about config file template generating different output
+    configFileTemplateHasChangedExternally = false
+```
+
+## Git Configuration
+
+Configure git behavior:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[git]
+    autoCommit = true
+    autoPush = true
+    commitMessageTemplate = "{{ .commitMessage }}"
+```
+
+Use a different VCS:
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[git]
+    command = "git"
+
+useBuiltinGit = false
+```
+
+## Troubleshooting
+
+### Editor Returns Too Quickly
+
+If you see:
+
+```
+chezmoi: warning: $EDITOR returned in less than 1s
+```
+
+Your editor is forking a background process. Add the appropriate flag:
+- VSCode: `--wait`
+- Vim: `-f`
+- Sublime: `-w`
+
+### Colors Not Showing in Diff
+
+Set the `LESS` environment variable:
+
+```bash
+export LESS=-R
+```
+
+### Flatpak Tools Not Found
+
+Ensure your wrapper scripts are:
+1. Executable (`chmod +x`)
+2. In your `$PATH`
+3. Named exactly like the command

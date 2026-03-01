@@ -1,0 +1,172 @@
+---
+title: Packaging chezmoi
+description: Guidelines for packaging chezmoi for operating systems and distributions
+---
+
+If you're packaging chezmoi for an operating system or distribution, this guide provides essential information to ensure a quality package.
+
+## Build Dependencies
+
+chezmoi has no build dependencies other than the standard Go toolchain.
+
+## Runtime Dependencies
+
+chezmoi has no runtime dependencies, but is usually used with `git`, so many packagers choose to make `git` an install dependency or recommended package.
+
+## Version Information
+
+Please set the version number, git commit, and build time in the binary. This greatly assists debugging when end users report problems or ask for help.
+
+You can do this by passing the following flags to `go build`:
+
+```bash
+go build -ldflags "-X main.version=$VERSION \
+                   -X main.commit=$COMMIT \
+                   -X main.date=$DATE \
+                   -X main.builtBy=$BUILT_BY"
+```
+
+### `$VERSION`
+
+- Should be the chezmoi version, e.g. `1.7.3`
+- Any `v` prefix is optional and will be stripped
+- You can pass the git tag in directly
+
+<Tip>
+The command `git describe --abbrev=0 --tags` will return a suitable value for `$VERSION`.
+</Tip>
+
+### `$COMMIT`
+
+Should be the full git commit hash at which chezmoi is built, e.g. `4d678ce6850c9d81c7ab2fe0d8f20c1547688b91`.
+
+<Tip>
+The `internal/cmds/generate-commit/main.go` script will return a suitable value for `$COMMIT`.
+
+You can run it with:
+
+```bash
+go tool generate-commit
+```
+
+Alternatively, the source archive contains a file called `COMMIT` containing the commit hash.
+</Tip>
+
+### `$DATE`
+
+Should be the date of the build as a UNIX timestamp or in RFC3339 format.
+
+<Tip>
+The command `git show -s --format=%ct HEAD` returns the UNIX timestamp of the last commit, e.g. `1636668628`.
+
+The command `date -u +%Y-%m-%dT%H:%M:%SZ` returns the current time in RFC3339 format, e.g. `2019-11-23T18:29:25Z`.
+</Tip>
+
+### `$BUILT_BY`
+
+Should be a string indicating what system was used to build the binary. Typically it should be the name of your packaging system, e.g. `homebrew`.
+
+## CGO Considerations
+
+Please enable cgo, if possible. chezmoi can be built and run without cgo, but the `.chezmoi.username` and `.chezmoi.group` template variables may not be set correctly on some systems.
+
+## Upgrade Command
+
+chezmoi includes an `upgrade` command which attempts to self-upgrade. You can remove this command completely by building chezmoi with the `noupgrade` build tag:
+
+```bash
+go build -tags noupgrade
+```
+
+This is recommended for system package managers to prevent users from accidentally upgrading outside of the package management system.
+
+## Shell Completions
+
+chezmoi includes shell completions in the `completions` directory. Please include these in the package and install them in the shell-appropriate directory, if possible.
+
+Typical installation paths:
+
+- **Bash**: `/usr/share/bash-completion/completions/chezmoi`
+- **Zsh**: `/usr/share/zsh/site-functions/_chezmoi`
+- **Fish**: `/usr/share/fish/vendor_completions.d/chezmoi.fish`
+- **PowerShell**: Check your distribution's conventions
+
+## Using Make
+
+You can use the provided Makefile for building and installing:
+
+```bash
+make VERSION=v2.0.0 \
+     COMMIT=$(git rev-parse HEAD) \
+     DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+     BUILT_BY=mypackage \
+     PREFIX=/usr \
+     DESTDIR=$pkgdir \
+     install
+```
+
+This will:
+
+1. Build the binary with embedded version information
+2. Install it to `${DESTDIR}${PREFIX}/bin/chezmoi`
+
+## Installation Guide
+
+If the instructions for installing chezmoi in chezmoi's [install guide](/install) are absent or incorrect, please open an issue or submit a PR to correct them.
+
+## Example Package Configurations
+
+### Homebrew
+
+```ruby
+class Chezmoi < Formula
+  desc "Manage your dotfiles across multiple machines"
+  homepage "https://chezmoi.io/"
+  url "https://github.com/twpayne/chezmoi/archive/v2.0.0.tar.gz"
+  
+  depends_on "go" => :build
+  
+  def install
+    system "make",
+           "VERSION=v#{version}",
+           "COMMIT=#{stable.specs[:revision]}",
+           "DATE=#{time.iso8601}",
+           "BUILT_BY=homebrew",
+           "PREFIX=#{prefix}",
+           "install"
+  end
+end
+```
+
+### Arch Linux PKGBUILD
+
+```bash
+build() {
+  cd "$srcdir/chezmoi-$pkgver"
+  
+  make VERSION="v$pkgver" \
+       COMMIT="$(cat COMMIT)" \
+       DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+       BUILT_BY="arch" \
+       build
+}
+
+package() {
+  cd "$srcdir/chezmoi-$pkgver"
+  
+  install -Dm755 chezmoi "$pkgdir/usr/bin/chezmoi"
+  
+  # Shell completions
+  install -Dm644 completions/chezmoi-completion.bash \
+    "$pkgdir/usr/share/bash-completion/completions/chezmoi"
+  install -Dm644 completions/chezmoi.fish \
+    "$pkgdir/usr/share/fish/vendor_completions.d/chezmoi.fish"
+  install -Dm644 completions/chezmoi.zsh \
+    "$pkgdir/usr/share/zsh/site-functions/_chezmoi"
+}
+```
+
+## See Also
+
+- [Building](/developer/building) - Build instructions
+- [Releases](/developer/releases) - Release process

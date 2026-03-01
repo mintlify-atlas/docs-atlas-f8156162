@@ -1,0 +1,373 @@
+---
+title: Dashlane
+description: Integrate Dashlane with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [Dashlane](https://dashlane.com), a password manager, using the Dashlane CLI to expose data as template functions.
+
+## Setup
+
+### Install Dashlane CLI
+
+Install the Dashlane CLI from the [Dashlane website](https://www.dashlane.com/cli).
+
+<CodeGroup>
+```bash macOS
+brew install dashlane/tap/dashlane-cli
+```
+
+```bash Linux
+npm install -g @dashlane/cli
+```
+
+```bash Windows
+npm install -g @dashlane/cli
+```
+</CodeGroup>
+
+### Log In
+
+Authenticate with Dashlane:
+
+```bash
+dcli sync
+```
+
+Follow the prompts to complete authentication.
+
+## Template Functions
+
+### `dashlanePassword`
+
+Retrieve password entries matching a filter:
+
+```text
+{{ (index (dashlanePassword "filter") 0).password }}
+```
+
+Returns an array of matching password entries.
+
+### `dashlaneNote`
+
+Retrieve secure notes matching a filter:
+
+```text
+{{ dashlaneNote "filter" }}
+```
+
+Returns the note content as a string.
+
+## Usage Examples
+
+### Basic Password Retrieval
+
+<CodeGroup>
+```text By Title
+# Get password from entry titled "GitHub"
+{{ (index (dashlanePassword "GitHub") 0).password }}
+```
+
+```text By Domain
+# Get password from entry with domain "github.com"
+{{ (index (dashlanePassword "github.com") 0).password }}
+```
+</CodeGroup>
+
+### Git Configuration
+
+```bash
+# Store in Dashlane with title "Git Config"
+# Fields: username, email, signing_key
+```
+
+```text ~/.gitconfig.tmpl
+{{ $git := index (dashlanePassword "Git Config") 0 -}}
+
+[user]
+    name = {{ $git.username }}
+    email = {{ $git.email }}
+    signingkey = {{ $git.note }}
+```
+
+### AWS Credentials
+
+```text ~/.aws/credentials.tmpl
+{{ $aws := index (dashlanePassword "AWS") 0 -}}
+
+[default]
+aws_access_key_id = {{ $aws.username }}
+aws_secret_access_key = {{ $aws.password }}
+```
+
+### NPM Configuration
+
+```text ~/.npmrc.tmpl
+{{ $npm := index (dashlanePassword "NPM") 0 -}}
+
+//registry.npmjs.org/:_authToken={{ $npm.password }}
+email={{ $npm.email }}
+```
+
+### Database Credentials
+
+```text ~/.config/db/config.yml.tmpl
+{{ $db := index (dashlanePassword "Production Database") 0 -}}
+
+production:
+  host: {{ $db.url }}
+  username: {{ $db.username }}
+  password: {{ $db.password }}
+  port: 5432
+  database: production_db
+```
+
+### Multiple Services
+
+```text ~/.config/api-keys.env.tmpl
+# GitHub
+{{ $github := index (dashlanePassword "GitHub API") 0 -}}
+GITHUB_TOKEN={{ $github.password }}
+
+# GitLab
+{{ $gitlab := index (dashlanePassword "GitLab API") 0 -}}
+GITLAB_TOKEN={{ $gitlab.password }}
+
+# OpenAI
+{{ $openai := index (dashlanePassword "OpenAI") 0 -}}
+OPENAI_API_KEY={{ $openai.password }}
+```
+
+### SSH Configuration
+
+```text ~/.ssh/config.tmpl
+{{ $github := index (dashlanePassword "GitHub SSH") 0 -}}
+{{ $gitlab := index (dashlanePassword "GitLab SSH") 0 -}}
+
+Host github.com
+    User {{ $github.username }}
+    IdentityFile ~/.ssh/id_ed25519
+
+Host gitlab.com
+    User {{ $gitlab.username }}
+    IdentityFile ~/.ssh/id_rsa
+```
+
+### Secure Notes
+
+Store multiline data like SSH keys or certificates in secure notes:
+
+```text ~/.ssh/id_rsa.tmpl
+{{ dashlaneNote "SSH Private Key" }}
+```
+
+```text ~/.config/ssl/certificate.pem.tmpl
+{{ dashlaneNote "SSL Certificate" }}
+```
+
+### Kubernetes Config
+
+```text ~/.kube/config.tmpl
+{{ $k8s := index (dashlanePassword "Kubernetes") 0 -}}
+
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: {{ $k8s.url }}
+    certificate-authority-data: {{ dashlaneNote "K8s CA Cert" | b64enc }}
+  name: production
+users:
+- name: admin
+  user:
+    token: {{ $k8s.password }}
+contexts:
+- context:
+    cluster: production
+    user: admin
+  name: prod-context
+current-context: prod-context
+```
+
+## Password Entry Structure
+
+Dashlane password entries typically have these fields:
+
+- `title`: Entry title
+- `username`: Username or login
+- `password`: Password value
+- `email`: Email address
+- `url`: Website URL
+- `note`: Additional notes
+
+```text
+{{ $entry := index (dashlanePassword "Service") 0 -}}
+
+Title: {{ $entry.title }}
+Username: {{ $entry.username }}
+Password: {{ $entry.password }}
+Email: {{ $entry.email }}
+URL: {{ $entry.url }}
+Note: {{ $entry.note }}
+```
+
+## Filtering
+
+The filter argument matches against:
+- Entry title
+- Domain/URL
+- Username
+- Email
+
+```text
+# Matches title, domain, or any field
+{{ dashlanePassword "github" }}
+
+# More specific filter
+{{ dashlanePassword "github.com" }}
+{{ dashlanePassword "GitHub API" }}
+```
+
+## Configuration
+
+### Custom Command
+
+If `dcli` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[dashlane]
+    command = "/custom/path/to/dcli"
+```
+
+## Complete Examples
+
+### Multi-Service Configuration
+
+```text ~/.config/services.yml.tmpl
+{{ $github := index (dashlanePassword "GitHub") 0 -}}
+{{ $aws := index (dashlanePassword "AWS") 0 -}}
+{{ $db := index (dashlanePassword "Database") 0 -}}
+
+github:
+  username: {{ $github.username }}
+  token: {{ $github.password }}
+  email: {{ $github.email }}
+
+aws:
+  access_key_id: {{ $aws.username }}
+  secret_access_key: {{ $aws.password }}
+  region: us-east-1
+
+database:
+  host: {{ $db.url }}
+  username: {{ $db.username }}
+  password: {{ $db.password }}
+  database: production_db
+```
+
+### Docker Registry
+
+```text ~/.docker/config.json.tmpl
+{{ $docker := index (dashlanePassword "Docker Hub") 0 -}}
+
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "auth": "{{ printf "%s:%s" $docker.username $docker.password | b64enc }}"
+    }
+  }
+}
+```
+
+### Environment Variables
+
+```text ~/.config/env.sh.tmpl
+#!/bin/bash
+
+{{ $github := index (dashlanePassword "GitHub") 0 -}}
+{{ $aws := index (dashlanePassword "AWS") 0 -}}
+{{ $openai := index (dashlanePassword "OpenAI") 0 -}}
+
+# GitHub
+export GITHUB_TOKEN="{{ $github.password }}"
+export GH_TOKEN="{{ $github.password }}"
+
+# AWS
+export AWS_ACCESS_KEY_ID="{{ $aws.username }}"
+export AWS_SECRET_ACCESS_KEY="{{ $aws.password }}"
+
+# OpenAI
+export OPENAI_API_KEY="{{ $openai.password }}"
+```
+
+## Troubleshooting
+
+### Not Logged In
+
+Sync and authenticate:
+
+```bash
+dcli sync
+```
+
+### Entry Not Found
+
+List all password entries:
+
+```bash
+dcli password
+```
+
+List all notes:
+
+```bash
+dcli note
+```
+
+### Command Not Found
+
+Ensure Dashlane CLI is installed:
+
+```bash
+which dcli
+dcli --version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ index (dashlanePassword "test") 0 | toJson }}'
+chezmoi execute-template '{{ dashlaneNote "test-note" }}'
+```
+
+### Multiple Matches
+
+If a filter returns multiple results, access by index:
+
+```text
+# First match
+{{ (index (dashlanePassword "github") 0).password }}
+
+# Second match
+{{ (index (dashlanePassword "github") 1).password }}
+```
+
+Use more specific filters to avoid multiple matches.
+
+## Best Practices
+
+1. **Use descriptive titles**: Make entries easy to filter
+2. **Consistent naming**: Use a naming convention for entries
+3. **Use notes field**: Store additional structured data in notes
+4. **Specific filters**: Use precise filters to avoid multiple matches
+5. **Secure notes**: Use secure notes for large/multiline data
+6. **Test filters**: Verify filters match the right entries
+7. **Stay synced**: Run `dcli sync` regularly
+8. **Organize**: Use Dashlane's folders/categories for organization
+
+## See Also
+
+- [Dashlane CLI Documentation](https://www.dashlane.com/cli)
+- [Dashlane Website](https://dashlane.com)
+- [Template Functions Reference](/reference/templates/password-manager-functions#dashlane)

@@ -1,0 +1,355 @@
+---
+title: KeePassXC
+description: Integrate KeePassXC with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [KeePassXC](https://keepassxc.org) using the KeePassXC CLI (`keepassxc-cli`) to expose data as template functions.
+
+## Setup
+
+### Install KeePassXC CLI
+
+<CodeGroup>
+```bash macOS
+brew install keepassxc
+```
+
+```bash Ubuntu/Debian
+sudo apt install keepassxc
+```
+
+```bash Fedora
+sudo dnf install keepassxc
+```
+</CodeGroup>
+
+### Configuration
+
+Provide the path to your KeePassXC database:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keepassxc]
+    database = "/home/user/Passwords.kdbx"
+```
+
+## Template Functions
+
+### `keepassxc`
+
+Get structured data from an entry:
+
+```text
+username = {{ (keepassxc "example.com").UserName }}
+password = {{ (keepassxc "example.com").Password }}
+```
+
+This runs `keepassxc-cli show $database example.com` and returns parsed data.
+
+### `keepassxcAttribute`
+
+Get additional attributes from an entry:
+
+```text
+{{ keepassxcAttribute "SSH Key" "private-key" }}
+```
+
+## Usage Examples
+
+### Basic Credentials
+
+<CodeGroup>
+```text Git Config
+# ~/.gitconfig.tmpl
+[user]
+    name = {{ (keepassxc "git-config").UserName }}
+    email = {{ (keepassxc "git-config").URL }}
+
+[github]
+    user = {{ (keepassxc "github").UserName }}
+```
+
+```text NPM Config
+# ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ (keepassxc "npm").Password }}
+email={{ (keepassxc "npm").UserName }}
+```
+</CodeGroup>
+
+### Database Credentials
+
+```text ~/.config/db/config.yml.tmpl
+production:
+  host: {{ (keepassxc "prod-database").URL }}
+  username: {{ (keepassxc "prod-database").UserName }}
+  password: {{ (keepassxc "prod-database").Password }}
+  database: {{ keepassxcAttribute "prod-database" "database" }}
+  port: {{ keepassxcAttribute "prod-database" "port" }}
+
+development:
+  host: localhost
+  username: {{ (keepassxc "dev-database").UserName }}
+  password: {{ (keepassxc "dev-database").Password }}
+  database: myapp_dev
+```
+
+### SSH Private Keys
+
+Store SSH keys as additional attributes:
+
+```text ~/.ssh/id_rsa.tmpl
+{{ keepassxcAttribute "SSH Key" "private-key" }}
+```
+
+### AWS Credentials
+
+```text ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ keepassxcAttribute "AWS Personal" "access-key-id" }}
+aws_secret_access_key = {{ (keepassxc "AWS Personal").Password }}
+region = {{ keepassxcAttribute "AWS Personal" "region" }}
+
+[work]
+aws_access_key_id = {{ keepassxcAttribute "AWS Work" "access-key-id" }}
+aws_secret_access_key = {{ (keepassxc "AWS Work").Password }}
+region = us-east-1
+```
+
+### API Tokens
+
+```text ~/.config/tokens.env.tmpl
+# GitHub
+GITHUB_TOKEN={{ (keepassxc "GitHub API").Password }}
+GH_TOKEN={{ (keepassxc "GitHub API").Password }}
+
+# GitLab
+GITLAB_TOKEN={{ (keepassxc "GitLab API").Password }}
+
+# OpenAI
+OPENAI_API_KEY={{ (keepassxc "OpenAI").Password }}
+
+# Additional fields
+STRIPE_SECRET_KEY={{ keepassxcAttribute "Stripe" "secret-key" }}
+STRIPE_PUBLISHABLE_KEY={{ keepassxcAttribute "Stripe" "publishable-key" }}
+```
+
+### Multiple Service Credentials
+
+```text ~/.netrc.tmpl
+machine github.com
+login {{ (keepassxc "github").UserName }}
+password {{ (keepassxc "github").Password }}
+
+machine gitlab.com
+login {{ (keepassxc "gitlab").UserName }}
+password {{ (keepassxc "gitlab").Password }}
+
+machine bitbucket.org
+login {{ (keepassxc "bitbucket").UserName }}
+password {{ (keepassxc "bitbucket").Password }}
+```
+
+## Configuration Options
+
+### Non-Password-Protected Databases
+
+If your database is not password protected:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keepassxc]
+    database = "/home/user/Passwords.kdbx"
+    args = ["--no-password"]
+    prompt = false
+```
+
+### YubiKey Support
+
+chezmoi includes experimental YubiKey support. Set `keepassxc.mode` to `open`:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keepassxc]
+    database = "/home/user/Passwords.kdbx"
+    mode = "open"
+    args = ["--no-password", "--yubikey", "2:7370001"]
+```
+
+The YubiKey slot format is `slot:serial`, where:
+- `slot`: YubiKey configuration slot (usually 1 or 2)
+- `serial`: YubiKey serial number
+
+Find your YubiKey serial:
+
+```bash
+ykman info
+```
+
+### Custom Command
+
+If `keepassxc-cli` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keepassxc]
+    command = "/custom/path/to/keepassxc-cli"
+    database = "/home/user/Passwords.kdbx"
+```
+
+### Additional Arguments
+
+Pass additional arguments to `keepassxc-cli`:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keepassxc]
+    database = "/home/user/Passwords.kdbx"
+    args = ["--quiet", "--key-file", "/path/to/keyfile"]
+```
+
+## Advanced Usage
+
+### Using Key Files
+
+If your database uses a key file:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keepassxc]
+    database = "/home/user/Passwords.kdbx"
+    args = ["--key-file", "/home/user/.keepass/keyfile.key"]
+```
+
+### Accessing Standard Fields
+
+KeePassXC entries have standard fields:
+
+```text
+Title: {{ (keepassxc "entry-name").Title }}
+UserName: {{ (keepassxc "entry-name").UserName }}
+Password: {{ (keepassxc "entry-name").Password }}
+URL: {{ (keepassxc "entry-name").URL }}
+Notes: {{ (keepassxc "entry-name").Notes }}
+```
+
+### Organizing Entries in Groups
+
+Reference entries by their full path:
+
+```text
+{{ (keepassxc "Work/GitHub").Password }}
+{{ (keepassxc "Personal/Email").Password }}
+{{ (keepassxc "Servers/Production/Database").Password }}
+```
+
+### Conditional Template Logic
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ (keepassxc "git").UserName }}
+{{- if (keepassxc "git").URL }}
+    email = {{ (keepassxc "git").URL }}
+{{- end }}
+{{- $signingKey := keepassxcAttribute "git" "signing-key" }}
+{{- if $signingKey }}
+    signingkey = {{ $signingKey }}
+{{- end }}
+```
+
+## Complete Examples
+
+### Multi-Environment Setup
+
+```text ~/.config/app/config.yml.tmpl
+{{ if eq .chezmoi.hostname "work-laptop" -}}
+# Work environment
+api:
+  endpoint: {{ (keepassxc "Work/API").URL }}
+  key: {{ (keepassxc "Work/API").Password }}
+
+database:
+  host: {{ keepassxcAttribute "Work/Database" "host" }}
+  username: {{ (keepassxc "Work/Database").UserName }}
+  password: {{ (keepassxc "Work/Database").Password }}
+{{ else -}}
+# Personal environment
+api:
+  endpoint: {{ (keepassxc "Personal/API").URL }}
+  key: {{ (keepassxc "Personal/API").Password }}
+
+database:
+  host: localhost
+  username: {{ (keepassxc "Personal/Database").UserName }}
+  password: {{ (keepassxc "Personal/Database").Password }}
+{{ end }}
+```
+
+### SSH Configuration
+
+```text ~/.ssh/config.tmpl
+{{ range $entry := list "github" "gitlab" "work-gitlab" -}}
+Host {{ $entry }}
+    HostName {{ (keepassxc $entry).URL }}
+    User {{ (keepassxc $entry).UserName }}
+    IdentityFile ~/.ssh/{{ $entry }}_id_rsa
+    IdentitiesOnly yes
+
+{{ end }}
+```
+
+## Troubleshooting
+
+### Database Locked
+
+You'll be prompted for the password when chezmoi accesses the database. Enter your master password.
+
+### Entry Not Found
+
+List all entries to find the correct path:
+
+```bash
+keepassxc-cli ls /path/to/database.kdbx
+```
+
+### Command Not Found
+
+Ensure KeePassXC CLI is installed:
+
+```bash
+which keepassxc-cli
+keepassxc-cli --version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ (keepassxc "test").UserName }}'
+```
+
+### Verify Entry Structure
+
+Show entry details:
+
+```bash
+keepassxc-cli show /path/to/database.kdbx "Entry Name"
+```
+
+### Permission Denied
+
+Ensure your database file has proper permissions:
+
+```bash
+chmod 600 /path/to/database.kdbx
+```
+
+## Best Practices
+
+1. **Use groups**: Organize entries in folders (Work, Personal, Servers)
+2. **Use attributes**: Store additional data as custom attributes
+3. **Secure your database**: Use a strong master password
+4. **Backup regularly**: Keep encrypted backups of your database
+5. **Test access**: Verify entries are accessible before using in templates
+6. **Use key files**: Add a key file for additional security
+7. **YubiKey**: Consider using a YubiKey for hardware-based security
+
+## See Also
+
+- [KeePassXC Website](https://keepassxc.org)
+- [KeePassXC CLI Documentation](https://keepassxc.org/docs/KeePassXC_UserGuide.html#_command_line_interface)
+- [Template Functions Reference](/reference/templates/password-manager-functions#keepassxc)

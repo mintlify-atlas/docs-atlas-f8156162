@@ -1,0 +1,486 @@
+---
+title: Troubleshooting FAQ
+description: Solutions to common problems and errors with chezmoi
+---
+
+Solutions to common problems, errors, and unexpected behavior.
+
+<AccordionGroup>
+  <Accordion title="How can I quickly check for problems with chezmoi on my machine?">
+    Run the built-in diagnostic command:
+    
+    ```bash
+    chezmoi doctor
+    ```
+    
+    **What it checks:**
+    - chezmoi version
+    - Configuration file location and validity
+    - Source directory location
+    - Destination directory (usually home)
+    - Editor configuration
+    - Merge tool configuration
+    - Password manager availability
+    - Git configuration
+    - And more...
+    
+    **Understanding the output:**
+    - `ok` - Everything is fine
+    - `warning` - Only a problem if you use that feature
+    - `error` - Definite problem that needs fixing
+    
+    **Example output:**
+    ```
+    RESULT CHECK MESSAGE
+    ok     version v2.46.0
+    ok     os linux
+    ok     config-file ~/.config/chezmoi/chezmoi.toml
+    ok     source-dir ~/.local/share/chezmoi
+    ok     working-tree ~/.local/share/chezmoi
+    warning age-command age not found in $PATH
+    ok     git-command git
+    ok     merge-command vimdiff
+    ```
+  </Accordion>
+
+  <Accordion title="How do I debug a command that's not working as expected?">
+    chezmoi provides two levels of debugging output:
+    
+    **Verbose mode (recommended first):**
+    ```bash
+    chezmoi --verbose apply
+    chezmoi --verbose diff
+    chezmoi -v add ~/.bashrc  # Short form
+    ```
+    
+    This shows:
+    - What chezmoi is doing
+    - Files being read/written
+    - Scripts being executed
+    - External commands being run
+    
+    **Debug mode (very detailed):**
+    ```bash
+    chezmoi --debug apply
+    chezmoi --debug diff
+    ```
+    
+    This shows:
+    - Step-by-step execution
+    - Template evaluation
+    - File comparisons
+    - Internal state changes
+    - Very detailed information
+    
+    **Debug a specific file:**
+    ```bash
+    chezmoi --verbose apply ~/.bashrc
+    chezmoi --debug execute-template < ~/.local/share/chezmoi/dot_bashrc.tmpl
+    ```
+  </Accordion>
+
+  <Accordion title="The output of `chezmoi diff` is broken with escape sequences. How do I fix it?">
+    This happens when your pager doesn't pass through ANSI color codes. You'll see output like `ESC[37m` instead of colors.
+    
+    **Quick fix - Set LESS environment variable:**
+    ```bash
+    export LESS=-R
+    ```
+    
+    Add this to your `~/.bashrc` or `~/.zshrc`.
+    
+    **Permanent fix - Configure chezmoi:**
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    pager = "less -R"
+    ```
+    
+    **Alternative solutions:**
+    
+    Disable colors:
+    ```bash
+    chezmoi diff --color=false
+    ```
+    
+    Disable pager:
+    ```bash
+    chezmoi diff --no-pager
+    ```
+    
+    Or in config:
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    [diff]
+        pager = ""
+    ```
+    
+    **For other pagers:**
+    - `bat`: Use `bat --paging=always`
+    - `most`: Already handles colors correctly
+    - Custom pager: Ensure it supports ANSI codes
+  </Accordion>
+
+  <Accordion title="Why do I get a blank buffer when running `chezmoi edit`?">
+    This happens when your editor command exits immediately (forking to background) instead of waiting for you to finish editing.
+    
+    **The warning:**
+    ```
+    chezmoi: warning: $EDITOR returned in less than 1s
+    ```
+    
+    **What's happening:**
+    1. chezmoi creates a temporary file
+    2. Your editor command starts and immediately returns
+    3. chezmoi thinks you're done and deletes the temp file
+    4. Your editor (running in background) opens a now-deleted file
+    5. You see a blank buffer
+    
+    **Solutions by editor:**
+    
+    **VSCode:**
+    ```bash
+    export EDITOR="code --wait"
+    ```
+    
+    Or in config:
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    [edit]
+        command = "code"
+        args = ["--wait"]
+    ```
+    
+    **Vim:**
+    ```bash
+    export EDITOR="vim -f"
+    ```
+    
+    Or:
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    [edit]
+        command = "vim"
+        args = ["-f"]
+    ```
+    
+    **Sublime Text:**
+    ```bash
+    export EDITOR="subl -w"
+    ```
+    
+    **Neovim:**
+    Usually works by default, but if needed:
+    ```bash
+    export EDITOR="nvim"
+    ```
+    
+    **The key:** Your editor command must block until you close the file.
+  </Accordion>
+
+  <Accordion title="chezmoi makes `~/.ssh/config` group writeable. How do I fix this?">
+    This happens when your system umask is `002` (group-writable by default) instead of the more common `022`.
+    
+    **SSH requires strict permissions:**
+    - `~/.ssh/config` must not be group or world writable
+    - SSH will refuse to use it if permissions are wrong
+    
+    **Solution - Set chezmoi's umask:**
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    umask = 0o022
+    ```
+    
+    This ensures all files created by chezmoi follow this umask.
+    
+    **Apply the fix:**
+    ```bash
+    chezmoi apply
+    ```
+    
+    **Check permissions:**
+    ```bash
+    ls -la ~/.ssh/config
+    # Should show: -rw-r--r-- (644)
+    ```
+    
+    **Note:** This umask applies to all files managed by chezmoi, not just SSH config.
+  </Accordion>
+
+  <Accordion title="chezmoi reports `user: lookup userid NNNNN: input/output error`">
+    This error occurs when using a statically-compiled chezmoi binary (built with musl) on a system using LDAP or NIS for user management.
+    
+    **Why it happens:**
+    - Static binaries with musl can't dynamically load LDAP/NIS libraries
+    - Your system needs these libraries to look up user information
+    
+    **Solution:**
+    
+    Install a dynamically-linked package for your distribution instead:
+    
+    **Debian/Ubuntu:**
+    ```bash
+    sudo apt install chezmoi
+    ```
+    
+    **Fedora:**
+    ```bash
+    sudo dnf install chezmoi
+    ```
+    
+    **Arch Linux:**
+    ```bash
+    sudo pacman -S chezmoi
+    ```
+    
+    These packages are linked against glibc and include LDAP/NIS support.
+    
+    **Don't use:** The statically-compiled binary from GitHub releases on LDAP/NIS systems.
+    
+    If the problem persists, [open an issue](https://github.com/twpayne/chezmoi/issues/new/choose).
+  </Accordion>
+
+  <Accordion title="chezmoi reports timeout obtaining persistent state lock">
+    This error occurs when another chezmoi instance is running and holding the lock.
+    
+    **Full error:**
+    ```
+    chezmoi: timeout obtaining persistent state lock
+    ```
+    
+    **Common causes:**
+    
+    1. **Another chezmoi command is running**
+       - Check for background chezmoi processes
+       - Look in other terminal windows
+    
+    2. **Script calling chezmoi**
+       - A `run_` script is invoking chezmoi
+       - Creates a deadlock (chezmoi waiting for itself)
+    
+    3. **Stale lock from crashed process**
+       - chezmoi crashed without releasing lock
+       - Lock file persists
+    
+    **Solutions:**
+    
+    **Find running chezmoi processes:**
+    ```bash
+    ps aux | grep chezmoi
+    ```
+    
+    **Kill if necessary:**
+    ```bash
+    killall chezmoi
+    ```
+    
+    **Check for scripts calling chezmoi:**
+    ```bash
+    chezmoi cd
+    grep -r "chezmoi" run_*
+    ```
+    
+    **Understanding locks:**
+    - Write lock: `add`, `apply`, `edit`, `forget`, `import`, `init`, `state`, `unmanage`, `update`
+    - Read lock: `diff`, `status`, `verify`
+    - Multiple readers OK, but only one writer
+    
+    The lock file is at `~/.config/chezmoi/chezmoistate.boltdb`.
+  </Accordion>
+
+  <Accordion title="chezmoi reports `fork/exec: exec format error` for a script">
+    This error means your script has a newline before the shebang (`#!`).
+    
+    **Problem script:**
+    ```bash title="run_once_setup.sh.tmpl"
+    {{ if eq .chezmoi.os "linux" }}
+    #!/bin/bash
+    echo "Setting up Linux"
+    {{ end }}
+    ```
+    
+    This creates:
+    ```bash
+    
+    #!/bin/bash
+    ```
+    
+    The blank line breaks the shebang.
+    
+    **Solution - Add dash to trim whitespace:**
+    ```bash title="run_once_setup.sh.tmpl"
+    {{ if eq .chezmoi.os "linux" -}}
+    #!/bin/bash
+    echo "Setting up Linux"
+    {{ end }}
+    ```
+    
+    The `-` before `}}` suppresses the trailing newline.
+    
+    Now creates:
+    ```bash
+    #!/bin/bash
+    echo "Setting up Linux"
+    ```
+    
+    **General rule:** Use `-` to trim whitespace in templates:
+    - `{{-` trims whitespace before
+    - `-}}` trims whitespace after
+  </Accordion>
+
+  <Accordion title="chezmoi reports `permission denied` when executing a script">
+    This occurs when your `/tmp` directory is mounted with the `noexec` option, preventing script execution.
+    
+    **Full error:**
+    ```
+    chezmoi: fork/exec /tmp/XXXXXXXXXX.XX: permission denied
+    ```
+    
+    **Check if /tmp is noexec:**
+    ```bash
+    mount | grep /tmp
+    # Look for "noexec" in the output
+    ```
+    
+    **Solution - Use a different temp directory:**
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    scriptTempDir = "~/tmp"
+    ```
+    
+    **Create the directory:**
+    ```bash
+    mkdir -p ~/tmp
+    ```
+    
+    Now chezmoi will write scripts to `~/tmp` instead of `/tmp`.
+    
+    **Why this happens:**
+    - chezmoi needs to write scripts to a temp location
+    - Scripts might be templates or encrypted
+    - Must be executable to run
+    - `/tmp` with `noexec` prevents this
+  </Accordion>
+
+  <Accordion title="chezmoi reports `no such file or directory` when adding a file">
+    This error occurs when you try to add a file to a directory that only exists in `.chezmoiexternal.*` but not in your source directory.
+    
+    **Example scenario:**
+    
+    `.chezmoiexternal.toml` has:
+    ```toml
+    [".config/nvim"]
+        type = "git-repo"
+        url = "https://github.com/NvChad/NvChad.git"
+    ```
+    
+    Then you try:
+    ```bash
+    chezmoi add ~/.config/direnv/direnvrc
+    ```
+    
+    **Error:**
+    ```
+    chezmoi: mkdir /home/user/.local/share/chezmoi/dot_config/direnv: no such file or directory
+    ```
+    
+    **Why:** The `dot_config` directory doesn't exist in source because it's external-only.
+    
+    **Solution - Create placeholder directory:**
+    ```bash
+    chezmoi cd
+    mkdir -p dot_config
+    touch dot_config/.keep
+    ```
+    
+    Now the add command works:
+    ```bash
+    chezmoi add ~/.config/direnv/direnvrc
+    ```
+    
+    See [issue #2006](https://github.com/twpayne/chezmoi/issues/2006) for details.
+  </Accordion>
+
+  <Accordion title="chezmoi reports `permission denied` for stdin/stdout with snap">
+    This is a [long-standing bug in snap](https://bugs.launchpad.net/ubuntu/+source/snapd/+bug/1849753), not chezmoi.
+    
+    **Error when using redirection:**
+    ```bash
+    chezmoi apply <file.txt  # Fails
+    chezmoi diff >output.txt  # Fails
+    ```
+    
+    **Workarounds:**
+    
+    **For stdin:**
+    ```bash
+    # Instead of:
+    chezmoi apply <file.txt
+    
+    # Use:
+    cat file.txt | chezmoi apply
+    ```
+    
+    **For stdout:**
+    ```bash
+    # Instead of:
+    chezmoi diff >output.txt
+    
+    # Use one of:
+    chezmoi diff -o output.txt
+    chezmoi diff --output=output.txt
+    chezmoi diff | tee output.txt >/dev/null
+    ```
+    
+    **Better solution - Don't use snap:**
+    
+    Install chezmoi via another method:
+    ```bash
+    # Script install
+    sh -c "$(curl -fsLS get.chezmoi.io)"
+    
+    # APT (if available)
+    sudo apt install chezmoi
+    
+    # Homebrew
+    brew install chezmoi
+    ```
+    
+    See the [install page](https://chezmoi.io/install/) for all options.
+  </Accordion>
+
+  <Accordion title="chezmoi reports `no such file or directory` for scripts on Nix/Termux">
+    This occurs when using hardcoded interpreter paths that don't exist on Nix or Termux.
+    
+    **Problem script:**
+    ```bash title="run_once_setup.sh"
+    #!/bin/bash
+    echo "Setting up"
+    ```
+    
+    On Nix/Termux, `/bin/bash` doesn't exist.
+    
+    **Solution 1 - Use lookPath (recommended):**
+    
+    Make the script a template:
+    ```bash title="run_once_setup.sh.tmpl"
+    #!{{ lookPath "bash" }}
+    echo "Setting up"
+    ```
+    
+    This finds bash wherever it is on the system.
+    
+    **Solution 2 - Use env (Nix):**
+    ```bash title="run_once_setup.sh"
+    #!/usr/bin/env bash
+    echo "Setting up"
+    ```
+    
+    **Solution 3 - Hardcode Termux path:**
+    ```bash title="run_once_setup.sh"
+    #!/data/data/com.termux/files/usr/bin/bash
+    echo "Setting up"
+    ```
+    
+    **For Python scripts:**
+    ```python title="run_once_setup.py.tmpl"
+    #!{{ lookPath "python3" }}
+    print("Setting up")
+    ```
+    
+    **Best practice:** Always use `lookPath` in templates for maximum portability.
+  </Accordion>
+</AccordionGroup>

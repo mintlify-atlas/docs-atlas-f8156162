@@ -1,0 +1,481 @@
+---
+title: Usage FAQ
+description: Frequently asked questions about using chezmoi day-to-day
+---
+
+Common questions about using chezmoi for everyday dotfile management.
+
+<AccordionGroup>
+  <Accordion title="How do I edit my dotfiles with chezmoi?">
+    There are five popular approaches for editing dotfiles. Choose the one that fits your workflow:
+    
+    **1. Use `chezmoi edit` (recommended):**
+    ```bash
+    chezmoi edit ~/.bashrc
+    ```
+    
+    With auto-apply:
+    ```bash
+    chezmoi edit --apply ~/.bashrc
+    ```
+    
+    With watch mode (auto-apply on save):
+    ```bash
+    chezmoi edit --watch ~/.bashrc
+    ```
+    
+    **Benefits:** Handles encryption transparently, uses target paths, enables git auto-commit.
+    
+    **2. Edit in source directory:**
+    ```bash
+    chezmoi cd
+    vim dot_bashrc
+    chezmoi diff  # Preview changes
+    chezmoi apply  # Apply changes
+    ```
+    
+    **Benefits:** Direct file editing, works with any editor, can edit multiple files.
+    
+    **3. Open source directory in editor:**
+    ```bash
+    chezmoi edit  # Opens source directory
+    ```
+    
+    **Benefits:** Works with IDEs, edit multiple files at once.
+    
+    **4. Edit target, then re-add:**
+    ```bash
+    vim ~/.bashrc
+    chezmoi add ~/.bashrc  # or: chezmoi re-add
+    ```
+    
+    **Benefits:** Familiar workflow, edit in place.
+    
+    **Note:** `re-add` doesn't work with templates.
+    
+    **5. Edit target, then merge:**
+    ```bash
+    vim ~/.bashrc
+    chezmoi merge ~/.bashrc
+    ```
+    
+    **Benefits:** Resolve conflicts with a merge tool.
+  </Accordion>
+
+  <Accordion title="What happens if I edit a dotfile without using `chezmoi edit`?">
+    If you edit `~/.zshrc` directly (without using chezmoi), nothing breaks immediately:
+    
+    **Before running `chezmoi apply`:**
+    - Your modified `~/.zshrc` remains in place
+    - Changes persist until you run `chezmoi apply`
+    
+    **When you run `chezmoi apply`:**
+    - chezmoi detects that `~/.zshrc` has changed
+    - You'll be prompted what to do
+    - Options: overwrite, keep current, or merge
+    
+    **To resolve differences:**
+    ```bash
+    # Option 1: Update source state with current file
+    chezmoi add ~/.zshrc
+    
+    # Option 2: Use merge tool to resolve
+    chezmoi merge ~/.zshrc
+    
+    # Option 3: See differences
+    chezmoi diff
+    ```
+    
+    **Best practice:** Use `chezmoi edit` to avoid conflicts, or configure auto-apply to see changes immediately.
+  </Accordion>
+
+  <Accordion title="How can I tell what dotfiles aren't managed by chezmoi?">
+    Use `chezmoi unmanaged` to see all files that exist in your home directory but aren't managed by chezmoi:
+    
+    ```bash
+    # List all unmanaged files
+    chezmoi unmanaged
+    
+    # List only unmanaged dotfiles (starting with .)
+    chezmoi unmanaged | grep '^\.'
+    
+    # Search for specific patterns
+    chezmoi unmanaged | grep config
+    ```
+    
+    **Add multiple files at once:**
+    ```bash
+    # Add specific files
+    chezmoi add ~/.vimrc ~/.tmux.conf
+    
+    # Add an entire directory
+    chezmoi add ~/.config/nvim
+    
+    # Add multiple directories
+    chezmoi add ~/.config/kitty ~/.config/alacritty
+    ```
+  </Accordion>
+
+  <Accordion title="How can I tell what dotfiles are currently managed by chezmoi?">
+    Use `chezmoi managed` to list all files managed by chezmoi:
+    
+    ```bash
+    # List all managed files
+    chezmoi managed
+    
+    # List managed files in a specific directory
+    chezmoi managed | grep .config/nvim
+    
+    # Count managed files
+    chezmoi managed | wc -l
+    ```
+    
+    **See the source path for a file:**
+    ```bash
+    chezmoi source-path ~/.bashrc
+    # Output: /home/user/.local/share/chezmoi/dot_bashrc
+    ```
+  </Accordion>
+
+  <Accordion title="How do I tell chezmoi to ignore specific files?">
+    By default, chezmoi only manages files you explicitly add. To ignore files in your source directory, use `.chezmoiignore`.
+    
+    **Create `.chezmoiignore` in your source directory:**
+    ```bash
+    chezmoi cd
+    cat > .chezmoiignore << 'EOF'
+    README.md
+    LICENSE
+    *.swp
+    **/*.backup
+    EOF
+    ```
+    
+    **Pattern examples:**
+    ```text
+    # Ignore specific file
+    .config/specific_file
+    
+    # Ignore all .txt files
+    *.txt
+    
+    # Ignore directory
+    .config/cache/
+    
+    # Ignore pattern recursively
+    **/*.log
+    ```
+    
+    **Machine-specific ignores:**
+    ```text title=".chezmoiignore"
+    {{- if ne .chezmoi.os "darwin" }}
+    .config/karabiner
+    .config/hammerspoon
+    {{- end }}
+    
+    {{- if ne .chezmoi.os "linux" }}
+    .config/i3
+    .config/sway
+    {{- end }}
+    ```
+    
+    See the [reference documentation](/reference/special-files-and-directories#chezmoiignore) for full syntax.
+  </Accordion>
+
+  <Accordion title="How do I commit changes to my dotfiles?">
+    You have several options for committing changes:
+    
+    **Option 1: Use `chezmoi cd` (manual):**
+    ```bash
+    chezmoi cd
+    git add .
+    git commit -m "Update dotfiles"
+    git push
+    exit  # Return to previous directory
+    ```
+    
+    **Option 2: Use `chezmoi git` (shortcut):**
+    ```bash
+    chezmoi git add .
+    chezmoi git commit -m "Update dotfiles"
+    chezmoi git push
+    ```
+    
+    **Note:** Use `--` before flags:
+    ```bash
+    chezmoi git -- commit -m "Update dotfiles"
+    chezmoi git -- push --force
+    ```
+    
+    **Option 3: Auto-commit (automatic):**
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    [git]
+        autoCommit = true
+        autoPush = true
+    ```
+    
+    Now chezmoi automatically commits and pushes after:
+    - `chezmoi add`
+    - `chezmoi edit`
+    - `chezmoi apply` (with changes)
+    
+    See the [daily operations guide](/user-guide/daily-operations#automatically-commit-and-push-changes-to-your-repo) for details.
+  </Accordion>
+
+  <Accordion title="I've made changes to both the destination and source state. How do I keep both?">
+    Use `chezmoi merge` to resolve differences with a merge tool:
+    
+    ```bash
+    chezmoi merge ~/.bashrc
+    ```
+    
+    This opens your configured merge tool with:
+    - **Destination:** Current file in your home directory (your local changes)
+    - **Source:** File in source state (what chezmoi would apply)
+    - **Target:** What the file would become
+    
+    Copy the changes you want to keep into the source state, save, and exit.
+    
+    **Configure your merge tool:**
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    [merge]
+        command = "vimdiff"  # or: meld, kdiff3, code, etc.
+    ```
+    
+    See the [tools guide](/advanced/tools#merge-tool-configuration) for merge tool configuration.
+  </Accordion>
+
+  <Accordion title="Can I use chezmoi to manage my shell history?">
+    No, and you shouldn't. Here's why:
+    
+    **Why chezmoi is unsuitable for shell history:**
+    - Every command creates a change
+    - Would require a commit for each command
+    - Would create thousands of commits per day
+    - Shell history changes too rapidly
+    - Not practical to sync via git
+    
+    **Use a dedicated tool instead:**
+    
+    [Atuin](https://atuin.sh/) is designed specifically for shell history sync:
+    - End-to-end encrypted
+    - Real-time sync across machines
+    - Enhanced search and statistics
+    - Works with bash, zsh, fish
+    
+    **Install Atuin with chezmoi:**
+    ```bash title="run_once_install_atuin.sh"
+    #!/bin/bash
+    curl --proto '=https' --tlsv1.2 -sSf https://setup.atuin.sh | bash
+    ```
+    
+    Then use chezmoi to manage Atuin's configuration file.
+  </Accordion>
+
+  <Accordion title="How do I install prerequisites for templates?">
+    If your templates depend on external tools (like `curl`, `jq`, etc.), install them with a `run_before` script:
+    
+    ```bash title="run_before_00-install-prerequisites.sh"
+    #!/bin/bash
+    set -eu
+    
+    # Install curl if not present
+    if ! command -v curl >/dev/null; then
+        sudo apt update
+        sudo apt install -y curl
+    fi
+    
+    # Install jq if not present
+    if ! command -v jq >/dev/null; then
+        sudo apt install -y jq
+    fi
+    ```
+    
+    **Important:** Don't make this script a template (no `.tmpl` extension), or it will be evaluated before the prerequisites are installed.
+    
+    **Inject data via environment variables:**
+    
+    If you need to pass data to non-template scripts:
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    [scriptEnv]
+        OS = "{{ .chezmoi.os }}"
+        ARCH = "{{ .chezmoi.arch }}"
+    ```
+    
+    See the [scripts guide](/user-guide/use-scripts-to-perform-actions#set-environment-variables) for details.
+  </Accordion>
+
+  <Accordion title="How do I write a literal `{{` or `}}` in a template?">
+    Use Go template syntax to escape the delimiters:
+    
+    **For single braces:**
+    ```go
+    {{ "{{" }}
+    {{ "}}" }}
+    ```
+    
+    **Result:**
+    ```
+    {{
+    }}
+    ```
+    
+    **For complete template expressions:**
+    ```go
+    {{ "{{ .Target }}" }}
+    ```
+    
+    **Result:**
+    ```
+    {{ .Target }}
+    ```
+    
+    **Example use case - documenting templates:**
+    ```markdown title="README.md.tmpl"
+    # My Dotfiles
+    
+    This repository uses chezmoi templates.
+    
+    Example template syntax: {{ "{{ .chezmoi.hostname }}" }}
+    ```
+  </Accordion>
+
+  <Accordion title="How do I run a script when an external repo changes?">
+    Use a `run_onchange_after_*.tmpl` script that includes the HEAD commit:
+    
+    ```bash title="run_onchange_after_emacs_d.tmpl"
+    #!/bin/bash
+    
+    # This comment includes the current HEAD, so the script runs when it changes
+    # {{ output "git" "-C" (joinPath .chezmoi.homeDir ".emacs.d") "rev-parse" "HEAD" }}
+    
+    echo "~/.emacs.d updated, running setup..."
+    ~/.emacs.d/bin/doom sync
+    ```
+    
+    **How it works:**
+    - The template output includes the git HEAD commit hash
+    - When the external repo updates, HEAD changes
+    - chezmoi detects the script content changed
+    - The script runs automatically
+  </Accordion>
+
+  <Accordion title="How do I run a script periodically (daily, weekly)?">
+    Use a `run_onchange_*.tmpl` script with the current date/time truncated to your desired period.
+    
+    **Run daily:**
+    ```bash title="run_onchange_daily.tmpl"
+    #!/bin/bash
+    
+    # This comment changes daily, triggering the script
+    # {{ now | date "2006-01-02" }}
+    
+    echo "Running daily tasks"
+    # Your daily tasks here
+    ```
+    
+    **Run weekly:**
+    ```bash title="run_onchange_weekly.tmpl"
+    #!/bin/bash
+    
+    # Week number (changes weekly)
+    # {{ output "date" "+%V" | trim }}
+    
+    echo "Running weekly tasks"
+    # Your weekly tasks here
+    ```
+    
+    **Alternative weekly (template functions):**
+    ```bash title="run_onchange_weekly_alt.tmpl"
+    #!/bin/bash
+    
+    # Approximate week number
+    # {{ div now.YearDay 7 }}
+    
+    echo "Running weekly tasks"
+    ```
+    
+    **How it works:**
+    - The comment contains a date that changes daily/weekly
+    - chezmoi detects the script content changed
+    - The script runs automatically
+  </Accordion>
+
+  <Accordion title="How do I enable shell completions?">
+    chezmoi provides completions for bash, zsh, fish, and PowerShell.
+    
+    **Bash:**
+    ```bash
+    # Add to ~/.bashrc
+    eval "$(chezmoi completion bash)"
+    ```
+    
+    Or install system-wide:
+    ```bash
+    chezmoi completion bash | sudo tee /usr/share/bash-completion/completions/chezmoi
+    ```
+    
+    **Zsh:**
+    ```bash
+    # Add to ~/.zshrc
+    eval "$(chezmoi completion zsh)"
+    ```
+    
+    Or add to fpath:
+    ```bash
+    chezmoi completion zsh > ~/.zsh/completions/_chezmoi
+    ```
+    
+    **Fish:**
+    ```bash
+    chezmoi completion fish | source
+    ```
+    
+    Or save permanently:
+    ```bash
+    chezmoi completion fish > ~/.config/fish/completions/chezmoi.fish
+    ```
+    
+    **PowerShell:**
+    Add to your profile:
+    ```powershell
+    chezmoi completion powershell | Out-String | Invoke-Expression
+    ```
+    
+    **Package managers:** If you installed via a package manager (brew, apt, etc.), completions may already be installed.
+  </Accordion>
+
+  <Accordion title="How do I use tools installed with Flatpak?">
+    Command-line tools installed with Flatpak must be run with `flatpak run`. There are two approaches:
+    
+    **Approach 1: Wrapper script (recommended):**
+    
+    Create a wrapper with the same name as the command:
+    
+    ```bash title="~/bin/keepassxc-cli"
+    #!/bin/bash
+    flatpak run --command=keepassxc-cli org.keepassxc.KeePassXC -- "$@"
+    ```
+    
+    Make it executable:
+    ```bash
+    chmod +x ~/bin/keepassxc-cli
+    ```
+    
+    Ensure `~/bin` is in your `$PATH`. Now chezmoi can find and run `keepassxc-cli` normally.
+    
+    **Approach 2: Direct configuration:**
+    
+    For tools with `.command` and `.args` config options:
+    
+    ```toml title="~/.config/chezmoi/chezmoi.toml"
+    [diff]
+        command = "flatpak"
+        args = ["run", "com.vscodium.codium", "--wait", "--diff"]
+    ```
+    
+    The wrapper script approach is recommended because it works with `chezmoi doctor` and feels more natural.
+    
+    See the [tools guide](/advanced/tools#flatpak-integration) for more details.
+  </Accordion>
+</AccordionGroup>

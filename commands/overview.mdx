@@ -1,0 +1,68 @@
+---
+title: Command Reference
+description: Complete reference for all chezmoi commands
+---
+
+chezmoi provides a comprehensive set of commands for managing your dotfiles. Commands are organized into the following categories:
+
+## Daily Commands
+
+These are the commands you'll use most frequently:
+
+- [init](/commands/init) - Setup the source directory and optionally clone a repository
+- [add](/commands/add) - Add files to the source state
+- [edit](/commands/edit) - Edit the source state of files
+- [apply](/commands/apply) - Update the destination directory to match the target state
+- [update](/commands/update) - Pull changes from the source repository and apply them
+- [status](/commands/status) - Show the status of managed files
+- [diff](/commands/diff) - Show differences between target and destination state
+- [merge](/commands/merge) - Perform three-way merges between states
+
+## Inspection Commands
+
+Commands for inspecting the state of your dotfiles:
+
+- [cat](/commands/cat) - Print the target contents of a file
+- [execute-template](/commands/execute-template) - Execute templates
+- [managed](/commands/managed) - List managed files
+- [unmanaged](/commands/unmanaged) - List unmanaged files
+- [verify](/commands/verify) - Verify the destination state matches the target state
+
+## Utility Commands
+
+Utility commands for working with chezmoi:
+
+- [cd](/commands/cd) - Launch a shell in the source directory
+- [doctor](/commands/doctor) - Check your system for potential problems
+- [upgrade](/commands/upgrade) - Upgrade chezmoi to the latest version
+- [completion](/commands/completion) - Generate shell completion scripts
+
+## Global Flags
+
+All commands support these global flags:
+
+- `--color` *value* - Colorize output (default `auto`, options: `on`, `off`, `auto`)
+- `--config` *path* - Set config file path
+- `--config-format` *format* - Set config file format (json, jsonc, toml, yaml)
+- `--debug` - Include debug information in output
+- `--destination` *path* - Set destination directory
+- `--dry-run` / `-n` - Run without making changes
+- `--force` - Make changes without prompting
+- `--source` *path* - Set source directory
+- `--verbose` / `-v` - Make output more verbose
+- `--working-tree` *path* - Set working tree directory
+
+## Exit Codes
+
+chezmoi uses the following exit codes:
+
+- `0` - Success
+- `1` - Generic error
+- `2` - Verification failed (used by `verify` command)
+
+## Command Aliases
+
+Some commands have shorter aliases:
+
+- `manage` → `add`
+- `list` → `managed`

@@ -1,0 +1,310 @@
+---
+title: Proton Pass
+description: Integrate Proton Pass with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [Proton Pass](https://proton.me/pass), a password manager from Proton, using the [Proton Pass CLI](https://protonpass.github.io/pass-cli/) to expose data as template functions.
+
+## Setup
+
+### Install Proton Pass CLI
+
+Install the Proton Pass CLI:
+
+```bash
+npm install -g @protontech/pass-cli
+```
+
+Or download from the [official repository](https://github.com/protonpass/pass-cli).
+
+### Log In
+
+Authenticate with Proton Pass:
+
+```bash
+proton-pass-cli login
+```
+
+Follow the authentication prompts.
+
+## Template Functions
+
+### `protonPass`
+
+Retrieve an item using a secret reference URI:
+
+```text
+{{ protonPass "pass://$SHARE_ID/$ITEM_ID/$FIELD" }}
+```
+
+The URI format is `pass://share-id/item-id/field-name`.
+
+### `protonPassJSON`
+
+Get structured JSON data for an item:
+
+```text
+{{ (protonPassJSON "item-identifier").password }}
+{{ (protonPassJSON "item-identifier").username }}
+```
+
+## Usage Examples
+
+### Simple Secret Retrieval
+
+```text
+# Using secret reference
+{{ protonPass "pass://share-123/item-456/password" }}
+```
+
+### Git Configuration
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ protonPass "pass://personal/git-config/name" }}
+    email = {{ protonPass "pass://personal/git-config/email" }}
+    signingkey = {{ protonPass "pass://personal/git-config/gpg-key" }}
+```
+
+### Using JSON Structure
+
+```text ~/.config/app/config.yml.tmpl
+{{ $github := protonPassJSON "github" -}}
+
+github:
+  username: {{ $github.username }}
+  token: {{ $github.password }}
+  email: {{ $github.email }}
+```
+
+### Database Credentials
+
+```text ~/.config/db/config.yml.tmpl
+{{ $db := protonPassJSON "production-database" -}}
+
+production:
+  host: {{ $db.url }}
+  port: 5432
+  username: {{ $db.username }}
+  password: {{ $db.password }}
+  database: production_db
+```
+
+### AWS Credentials
+
+```text ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ protonPass "pass://personal/aws/access-key-id" }}
+aws_secret_access_key = {{ protonPass "pass://personal/aws/secret-access-key" }}
+region = {{ protonPass "pass://personal/aws/region" }}
+```
+
+### Multiple API Keys
+
+```text ~/.config/api-keys.env.tmpl
+# GitHub
+GITHUB_TOKEN={{ protonPass "pass://work/github/token" }}
+
+# GitLab
+GITLAB_TOKEN={{ protonPass "pass://work/gitlab/token" }}
+
+# OpenAI
+OPENAI_API_KEY={{ protonPass "pass://personal/openai/api-key" }}
+
+# Stripe
+STRIPE_SECRET_KEY={{ protonPass "pass://work/stripe/secret-key" }}
+```
+
+### NPM Configuration
+
+```text ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ protonPass "pass://personal/npm/token" }}
+email={{ protonPass "pass://personal/npm/email" }}
+```
+
+### SSH Configuration
+
+```text ~/.ssh/config.tmpl
+Host github.com
+    User {{ protonPass "pass://personal/github-ssh/username" }}
+    IdentityFile ~/.ssh/id_ed25519
+
+Host gitlab.com
+    User {{ protonPass "pass://work/gitlab-ssh/username" }}
+    IdentityFile ~/.ssh/id_rsa
+```
+
+### Docker Registry
+
+```text ~/.docker/config.json.tmpl
+{{ $docker := protonPassJSON "docker-hub" -}}
+
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "auth": "{{ printf "%s:%s" $docker.username $docker.password | b64enc }}"
+    }
+  }
+}
+```
+
+## Secret Reference URI Format
+
+Proton Pass uses URIs in the format:
+
+```
+pass://SHARE_ID/ITEM_ID/FIELD
+```
+
+Where:
+- `SHARE_ID`: The vault/share identifier
+- `ITEM_ID`: The item identifier
+- `FIELD`: The field name (e.g., `password`, `username`, `email`)
+
+## Finding Item References
+
+To find item identifiers:
+
+```bash
+# List all items
+proton-pass-cli list
+
+# View item details
+proton-pass-cli show "item-name"
+```
+
+## Configuration
+
+### Custom Command
+
+If the Proton Pass CLI is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[protonPass]
+    command = "/custom/path/to/proton-pass-cli"
+```
+
+## Complete Examples
+
+### Multi-Service Configuration
+
+```text ~/.config/services.yml.tmpl
+{{ $github := protonPassJSON "github" -}}
+{{ $aws := protonPassJSON "aws" -}}
+{{ $db := protonPassJSON "database" -}}
+
+github:
+  username: {{ $github.username }}
+  token: {{ $github.password }}
+
+aws:
+  access_key_id: {{ $aws.username }}
+  secret_access_key: {{ $aws.password }}
+  region: us-east-1
+
+database:
+  host: {{ $db.url }}
+  username: {{ $db.username }}
+  password: {{ $db.password }}
+  database: production
+```
+
+### Application Configuration
+
+```text ~/.config/app/config.yml.tmpl
+application:
+  name: myapp
+  environment: production
+
+api_keys:
+  github: {{ protonPass "pass://work/github/token" }}
+  openai: {{ protonPass "pass://work/openai/api-key" }}
+  stripe: {{ protonPass "pass://work/stripe/secret-key" }}
+
+database:
+  url: postgresql://{{ protonPass "pass://work/db/username" }}:{{ protonPass "pass://work/db/password" }}@{{ protonPass "pass://work/db/host" }}/production
+
+redis:
+  url: redis://:{{ protonPass "pass://work/redis/password" }}@localhost:6379
+```
+
+### Kubernetes Secrets
+
+```text ~/k8s/secrets.yaml.tmpl
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+data:
+  database-password: {{ protonPass "pass://work/db/password" | b64enc }}
+  api-key: {{ protonPass "pass://work/api/key" | b64enc }}
+  jwt-secret: {{ protonPass "pass://work/jwt/secret" | b64enc }}
+```
+
+## Troubleshooting
+
+### Not Logged In
+
+Log in to Proton Pass:
+
+```bash
+proton-pass-cli login
+```
+
+### Item Not Found
+
+List all items:
+
+```bash
+proton-pass-cli list
+```
+
+Verify the item exists and get its reference:
+
+```bash
+proton-pass-cli show "item-name"
+```
+
+### Command Not Found
+
+Ensure Proton Pass CLI is installed:
+
+```bash
+which proton-pass-cli
+npm list -g @protontech/pass-cli
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ protonPass "pass://share/item/field" }}'
+chezmoi execute-template '{{ protonPassJSON "item" | toJson }}'
+```
+
+### Invalid Reference
+
+Ensure your reference URI is in the correct format:
+
+```
+pass://SHARE_ID/ITEM_ID/FIELD
+```
+
+## Best Practices
+
+1. **Use secret references**: Prefer the `pass://` URI format for clarity
+2. **Organize vaults**: Use separate vaults for work, personal, shared
+3. **Document references**: Keep a list of reference URIs used
+4. **Test access**: Verify items are accessible before templating
+5. **Use descriptive names**: Name items clearly for easy reference
+6. **Leverage JSON**: Use `protonPassJSON` for multiple fields
+7. **Stay synced**: Ensure Proton Pass is synced across devices
+
+## See Also
+
+- [Proton Pass Website](https://proton.me/pass)
+- [Proton Pass CLI Documentation](https://protonpass.github.io/pass-cli/)
+- [Proton Pass CLI GitHub](https://github.com/protonpass/pass-cli)
+- [Template Functions Reference](/reference/templates/password-manager-functions#proton-pass)

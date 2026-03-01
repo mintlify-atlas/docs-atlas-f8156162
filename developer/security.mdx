@@ -1,0 +1,126 @@
+---
+title: Security
+description: Security policy and vulnerability reporting for chezmoi
+---
+
+## Supported Versions
+
+Only the most recent version of chezmoi is supported with security updates.
+
+<Warning>
+Always upgrade to the latest version to receive security fixes.
+</Warning>
+
+## Virus Scanner False Positives
+
+Virus scanning software, especially on Windows machines, occasionally report viruses or trojans in the chezmoi binary. This is almost certainly a false positive.
+
+### Why This Happens
+
+Go binaries, especially those that are compressed or use certain compilation techniques, can trigger heuristic virus detection. This is a known issue with Go programs.
+
+For more information see [Why does my virus-scanning software think my Go distribution or compiled binary is infected?](https://go.dev/doc/faq#virus) in the Go FAQ.
+
+### What to Do
+
+If your virus scanner flags chezmoi:
+
+1. Verify you downloaded chezmoi from official sources:
+   - [GitHub Releases](https://github.com/twpayne/chezmoi/releases)
+   - Official package managers (Homebrew, apt, etc.)
+   - The official install script at [get.chezmoi.io](https://get.chezmoi.io)
+
+2. Verify the checksum of the binary against the official checksums
+
+3. Check the [signed checksums](/developer/releases#signing) using cosign
+
+4. If you're still concerned, build from source:
+   ```sh
+   git clone https://github.com/twpayne/chezmoi.git
+   cd chezmoi
+   make build
+   ```
+
+5. Add an exception in your virus scanner for the chezmoi binary
+
+## Reporting a Vulnerability
+
+<Warning>
+Do not report security vulnerabilities through public GitHub issues.
+</Warning>
+
+Please report vulnerabilities through one of these channels:
+
+### GitHub Security Advisories
+
+[Open a security advisory](https://github.com/twpayne/chezmoi/security/advisories/new) on GitHub (preferred method).
+
+### Email
+
+Send an email to [twpayne+chezmoi-security@gmail.com](mailto:twpayne+chezmoi-security@gmail.com).
+
+### GitHub Issue
+
+If the vulnerability is minor or you're unsure, you can [open a GitHub issue](https://github.com/twpayne/chezmoi/issues/new/choose).
+
+## What to Include
+
+When reporting a vulnerability, please include:
+
+- Description of the vulnerability
+- Steps to reproduce the issue
+- Affected versions
+- Potential impact
+- Suggested fix (if any)
+
+## Response Timeline
+
+- **Initial response**: Within 48 hours
+- **Status update**: Within 1 week
+- **Fix timeline**: Depends on severity
+  - Critical: As soon as possible
+  - High: Within 2 weeks
+  - Medium: Within 1 month
+  - Low: Next release cycle
+
+## Disclosure Policy
+
+We follow coordinated disclosure:
+
+1. Vulnerability is reported privately
+2. We confirm and investigate the issue
+3. A fix is developed and tested
+4. A new version is released
+5. Public disclosure after users have had time to upgrade
+
+## Security Best Practices
+
+When using chezmoi:
+
+### Protect Your Source Directory
+
+- Keep your dotfiles repository private if it contains sensitive data
+- Use [encryption](/encryption/overview) for secrets
+- Never commit unencrypted passwords or API keys
+
+### Use Templates for Secrets
+
+- Store secrets in a password manager
+- Use [template functions](/reference/templates/functions) to retrieve secrets
+- Use [age](/encryption/age) or [gpg](/encryption/gpg) encryption
+
+### Regular Updates
+
+- Keep chezmoi updated to the latest version
+- Subscribe to the [GitHub releases](https://github.com/twpayne/chezmoi/releases) for notifications
+
+### Verify Downloads
+
+- Always verify checksums when downloading binaries
+- Use official package managers when possible
+- Check signatures using cosign
+
+## See Also
+
+- [Releases](/developer/releases) - Information about release signing
+- [Code of Conduct](https://github.com/twpayne/chezmoi/blob/master/.github/CODE_OF_CONDUCT.md)

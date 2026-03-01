@@ -1,0 +1,290 @@
+---
+title: Include Files from Elsewhere
+description: Import external files and repositories into your dotfiles
+---
+
+Use `.chezmoiexternal.toml` to include files from external sources. chezmoi downloads and manages them as part of your source state.
+
+## Include a subdirectory from a URL
+
+Import entire repositories like Oh My Zsh without using git submodules:
+
+```toml ~/.local/share/chezmoi/.chezmoiexternal.toml
+[".oh-my-zsh"]
+    type = "archive"
+    url = "https://github.com/ohmyzsh/ohmyzsh/archive/master.tar.gz"
+    exact = true
+    stripComponents = 1
+    refreshPeriod = "168h"
+[".oh-my-zsh/custom/plugins/zsh-syntax-highlighting"]
+    type = "archive"
+    url = "https://github.com/zsh-users/zsh-syntax-highlighting/archive/master.tar.gz"
+    exact = true
+    stripComponents = 1
+    refreshPeriod = "168h"
+[".oh-my-zsh/custom/themes/powerlevel10k"]
+    type = "archive"
+    url = "https://github.com/romkatv/powerlevel10k/archive/v1.15.0.tar.gz"
+    exact = true
+    stripComponents = 1
+```
+
+<Steps>
+  <Step title="Apply changes">
+    ```bash
+    chezmoi apply
+    ```
+
+    chezmoi downloads and unpacks archives automatically.
+  </Step>
+
+  <Step title="Force refresh">
+    <CodeGroup>
+    ```bash Long form
+    chezmoi --refresh-externals apply
+    ```
+
+    ```bash Short form
+    chezmoi -R apply
+    ```
+    </CodeGroup>
+
+    Forces re-download even within `refreshPeriod`.
+  </Step>
+</Steps>
+
+### Understanding refresh periods
+
+<CardGroup cols={2}>
+  <Card title="With refreshPeriod" icon="clock">
+    ```toml
+    refreshPeriod = "168h"  # 1 week
+    ```
+    For URLs pointing to moving targets (e.g., `master` branch)
+  </Card>
+  <Card title="Without refreshPeriod" icon="lock">
+    ```toml
+    # No refreshPeriod set
+    ```
+    For URLs pointing to tagged versions (e.g., `v1.15.0`)
+  </Card>
+</CardGroup>
+
+<Warning>
+When using Oh My Zsh, disable auto-updates by setting `DISABLE_AUTO_UPDATE="true"` in `~/.zshrc`. Auto-updates will cause the directory to drift from chezmoi's source state.
+</Warning>
+
+<Note>
+If externals have cache files that change during use, add the cache directory to `.chezmoiignore`. For example, Oh My Zsh caches completions in `.oh-my-zsh/cache/completions/`.
+</Note>
+
+<Warning>
+Don't use externals for large files or archives. chezmoi validates exact contents every time you run `diff`, `apply`, or `verify`. For large externals, use a `run_onchange_` script instead.
+</Warning>
+
+## Include a subdirectory with selected files from a URL
+
+Use `include` filters to import only specific files:
+
+```toml ~/.local/share/chezmoi/.chezmoiexternal.toml
+[".oh-my-zsh/custom/plugins/zsh-syntax-highlighting"]
+    type = "archive"
+    url = "https://github.com/zsh-users/zsh-syntax-highlighting/archive/master.tar.gz"
+    exact = true
+    stripComponents = 1
+    refreshPeriod = "168h"
+    include = ["*/*.zsh", "*/.version", "*/.revision-hash", "*/highlighters/**"]
+```
+
+This imports only the required source files, reducing the size of your dotfiles repo.
+
+## Include a single file from a URL
+
+Use `type = "file"` for single files:
+
+```toml ~/.local/share/chezmoi/.chezmoiexternal.toml
+[".vim/autoload/plug.vim"]
+    type = "file"
+    url = "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim"
+    refreshPeriod = "168h"
+```
+
+<Tabs>
+  <Tab title="Static version">
+    ```toml
+    [".vim/autoload/plug.vim"]
+        type = "file"
+        url = "https://raw.githubusercontent.com/junegunn/vim-plug/0.12.0/plug.vim"
+    ```
+    No `refreshPeriod` needed for tagged versions.
+  </Tab>
+
+  <Tab title="Latest version">
+    ```toml
+    [".vim/autoload/plug.vim"]
+        type = "file"
+        url = "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim"
+        refreshPeriod = "168h"
+    ```
+    Use `refreshPeriod` to check for updates.
+  </Tab>
+</Tabs>
+
+## Extract a single file from an archive
+
+Extract specific files from archives:
+
+```toml ~/.local/share/chezmoi/.chezmoiexternal.toml
+{{ $ageVersion := "1.1.1" -}}
+[".local/bin/age"]
+    type = "archive-file"
+    url = "https://github.com/FiloSottile/age/releases/download/v{{ $ageVersion }}/age-v{{ $ageVersion }}-{{ .chezmoi.os }}-{{ .chezmoi.arch }}.tar.gz"
+    path = "age/age"
+```
+
+This:
+1. Downloads the archive for your OS and architecture
+2. Extracts only the `age/age` member
+3. Places it at `~/.local/bin/age`
+
+<Tip>
+Templates in `.chezmoiexternal.toml` allow platform-specific URLs.
+</Tip>
+
+## Import archives
+
+For one-time imports, use the `import` command:
+
+<Steps>
+  <Step title="Download archive">
+    ```bash
+    curl -s -L -o ${TMPDIR}/oh-my-zsh-master.tar.gz https://github.com/ohmyzsh/ohmyzsh/archive/master.tar.gz
+    ```
+  </Step>
+
+  <Step title="Create destination directory">
+    ```bash
+    mkdir -p $(chezmoi source-path)/dot_oh-my-zsh
+    ```
+  </Step>
+
+  <Step title="Import archive">
+    ```bash
+    chezmoi import --strip-components 1 --destination ~/.oh-my-zsh ${TMPDIR}/oh-my-zsh-master.tar.gz
+    ```
+  </Step>
+
+  <Step title="Apply changes">
+    ```bash
+    chezmoi apply
+    ```
+  </Step>
+</Steps>
+
+<Note>
+`import` updates the source state but doesn't apply changes. Run `chezmoi apply` to update your home directory.
+</Note>
+
+## Handle tar archives in unsupported compression formats
+
+chezmoi natively supports: bzip2, gzip, xz, and zstd. For other formats, use filters:
+
+```toml ~/.local/share/chezmoi/.chezmoiexternal.toml
+[".Software/anki/2.1.54-qt6"]
+    type = "archive"
+    url = "https://github.com/ankitects/anki/releases/download/2.1.54/anki-2.1.54-linux-qt6.tar.zst"
+    filter.command = "zstd"
+    filter.args = ["-d"]
+    format = "tar"
+```
+
+How it works:
+1. `filter.command` and `filter.args` pipe downloaded data through `zstd -d`
+2. `format = "tar"` tells chezmoi the filter outputs uncompressed tar
+
+## Include a subdirectory from a git repository
+
+Manage git repositories directly:
+
+```toml ~/.local/share/chezmoi/.chezmoiexternal.toml
+[".vim/pack/alker0/chezmoi.vim"]
+    type = "git-repo"
+    url = "https://github.com/alker0/chezmoi.vim.git"
+    refreshPeriod = "168h"
+```
+
+Behavior:
+- First run: `git clone`
+- Subsequent runs: `git pull` (respects `refreshPeriod`)
+- Force refresh: `chezmoi -R apply`
+
+<Warning>
+chezmoi only runs `git clone`/`git pull`. You must have `git` in your `$PATH`. chezmoi cannot manage other files in the directory, and contents won't appear in `chezmoi diff` or `chezmoi dump`.
+</Warning>
+
+### Customize git commands
+
+```toml ~/.local/share/chezmoi/.chezmoiexternal.toml
+[".vim/pack/alker0/chezmoi.vim"]
+    type = "git-repo"
+    url = "https://github.com/alker0/chezmoi.vim.git"
+    refreshPeriod = "168h"
+    [".vim/pack/alker0/chezmoi.vim".pull]
+        args = ["--ff-only"]
+```
+
+<Tip>
+If you need to manage extra files in a git repository, use `type = "archive"` with a URL pointing to the `master`/`main` branch archive instead.
+</Tip>
+
+## Use git submodules in your source directory
+
+<Warning>
+If using git submodules, set the `external_` attribute on directories containing submodules.
+</Warning>
+
+chezmoi supports git submodules with `--recurse-submodules` by default:
+
+<Steps>
+  <Step title="Add submodule">
+    ```bash
+    chezmoi cd
+    git submodule add https://github.com/user/repo.git external_repo
+    ```
+  </Step>
+
+  <Step title="Set external_ attribute">
+    ```bash
+    # Name the directory with external_ prefix
+    mv repo external_repo
+    ```
+
+    This prevents chezmoi from interpreting filenames like `run_test.sh` as scripts.
+  </Step>
+
+  <Step title="Initialize and update">
+    <CodeGroup>
+    ```bash chezmoi init
+    chezmoi init --recurse-submodules https://github.com/user/dotfiles.git
+    ```
+
+    ```bash chezmoi update
+    chezmoi update  # automatically uses --recurse-submodules
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<Note>
+Disable submodule handling with `--recurse-submodules=false` or set `update.recurseSubmodules = false` in your config.
+</Note>
+
+## Comparison: External types
+
+| Type | Use case | Refresh | Managed by chezmoi |
+|------|----------|---------|--------------------|
+| `archive` | Full repository/directory | Yes | Yes |
+| `file` | Single file | Yes | Yes |
+| `archive-file` | Single file from archive | Yes | Yes |
+| `git-repo` | Git repository | Yes | No (git manages) |
+| git submodule | Git repository | Yes | No (git manages) |

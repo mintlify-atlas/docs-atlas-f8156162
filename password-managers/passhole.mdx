@@ -1,0 +1,389 @@
+---
+title: Passhole
+description: Integrate KeePass with chezmoi using the Passhole CLI
+---
+
+chezmoi includes support for [KeePass](https://keepass.info/) using the [Passhole CLI](https://github.com/Evidlo/passhole) (`ph`) to expose data as template functions.
+
+## Overview
+
+Passhole (`ph`) is a command-line interface for KeePass databases. Unlike KeePassXC CLI, Passhole provides a more streamlined interface for accessing KeePass databases from the terminal.
+
+## Setup
+
+### Install Passhole
+
+<CodeGroup>
+```bash pip
+pip install passhole
+```
+
+```bash pipx
+pipx install passhole
+```
+</CodeGroup>
+
+### Initialize Database
+
+If you don't have a KeePass database:
+
+```bash
+ph init /path/to/database.kdbx
+```
+
+Or use an existing KeePass database:
+
+```bash
+ph set-database /path/to/database.kdbx
+```
+
+## Template Function
+
+### `passhole`
+
+Retrieve a specific field from a KeePass entry:
+
+```text
+{{ passhole "path/to/entry" "field" }}
+```
+
+Common field names:
+- `password`
+- `username`
+- `url`
+- `notes`
+- Custom field names
+
+## Configuration
+
+### Basic Configuration
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[passhole]
+    command = "ph"
+```
+
+### With Password Prompt
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[passhole]
+    prompt = true
+```
+
+When `prompt = true`, chezmoi will prompt for your database password once and cache it for the session.
+
+### Custom Arguments
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[passhole]
+    args = ["--database", "/path/to/database.kdbx"]
+```
+
+## Usage Examples
+
+### Basic Password Retrieval
+
+```text ~/.config/api-keys.env.tmpl
+GITHUB_TOKEN={{ passhole "Personal/GitHub" "password" }}
+```
+
+### Git Configuration
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ passhole "Personal/Git" "username" }}
+    email = {{ passhole "Personal/Git" "email" }}
+    signingkey = {{ passhole "Personal/Git" "gpg_key" }}
+```
+
+### Database Credentials
+
+```text ~/.config/db/config.yml.tmpl
+production:
+  host: {{ passhole "Work/Database/Production" "url" }}
+  port: 5432
+  username: {{ passhole "Work/Database/Production" "username" }}
+  password: {{ passhole "Work/Database/Production" "password" }}
+  database: {{ passhole "Work/Database/Production" "database_name" }}
+```
+
+### AWS Credentials
+
+```text ~/.aws/credentials.tmpl
+[default]
+aws_access_key_id = {{ passhole "Cloud/AWS" "access_key_id" }}
+aws_secret_access_key = {{ passhole "Cloud/AWS" "secret_access_key" }}
+region = {{ passhole "Cloud/AWS" "region" }}
+```
+
+### Multiple API Keys
+
+```text ~/.config/api-keys.env.tmpl
+# GitHub
+GITHUB_TOKEN={{ passhole "API/GitHub" "password" }}
+
+# GitLab
+GITLAB_TOKEN={{ passhole "API/GitLab" "password" }}
+
+# OpenAI
+OPENAI_API_KEY={{ passhole "API/OpenAI" "api_key" }}
+
+# Stripe
+STRIPE_SECRET_KEY={{ passhole "API/Stripe" "secret_key" }}
+STRIPE_PUBLISHABLE_KEY={{ passhole "API/Stripe" "publishable_key" }}
+```
+
+### NPM Configuration
+
+```text ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ passhole "Development/NPM" "password" }}
+email={{ passhole "Development/NPM" "email" }}
+```
+
+### SSH Configuration
+
+```text ~/.ssh/config.tmpl
+Host github.com
+    User {{ passhole "SSH/GitHub" "username" }}
+    IdentityFile ~/.ssh/id_ed25519
+
+Host gitlab.com
+    User {{ passhole "SSH/GitLab" "username" }}
+    IdentityFile ~/.ssh/id_rsa
+
+Host work-server
+    HostName {{ passhole "SSH/WorkServer" "url" }}
+    User {{ passhole "SSH/WorkServer" "username" }}
+    IdentityFile ~/.ssh/work_id_rsa
+```
+
+### Docker Registry
+
+```text ~/.docker/config.json.tmpl
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "auth": "{{ printf "%s:%s" (passhole "Docker/Hub" "username") (passhole "Docker/Hub" "password") | b64enc }}"
+    }
+  }
+}
+```
+
+## Managing KeePass Database with Passhole
+
+### Adding Entries
+
+```bash
+# Add a new entry
+ph add "Personal/GitHub"
+# Enter username, password, url, etc.
+
+# Add entry with specific fields
+ph add "API/Service" --username user --password pass --url https://example.com
+```
+
+### Listing Entries
+
+```bash
+# List all entries
+ph list
+
+# List entries in a group
+ph list "Personal"
+```
+
+### Viewing Entries
+
+```bash
+# Show entry details
+ph show "Personal/GitHub"
+
+# Show specific field
+ph show "Personal/GitHub" --field password
+```
+
+### Editing Entries
+
+```bash
+ph edit "Personal/GitHub"
+```
+
+### Deleting Entries
+
+```bash
+ph delete "Personal/GitHub"
+```
+
+## Entry Organization
+
+Organize entries in groups (folders):
+
+```
+Root/
+├── Personal/
+│   ├── Email/
+│   │   └── Gmail
+│   ├── GitHub
+│   └── Social/
+│       ├── Twitter
+│       └── LinkedIn
+├── Work/
+│   ├── AWS
+│   ├── GitHub
+│   └── Database/
+│       ├── Production
+│       └── Staging
+└── API/
+    ├── GitHub
+    ├── OpenAI
+    └── Stripe
+```
+
+Access with:
+
+```text
+{{ passhole "Personal/GitHub" "password" }}
+{{ passhole "Work/Database/Production" "password" }}
+{{ passhole "API/OpenAI" "api_key" }}
+```
+
+## Custom Fields
+
+Passhole supports custom fields beyond the standard username/password:
+
+```bash
+# Add entry with custom fields
+ph add "API/Service"
+# When prompted, add custom fields like:
+# - api_key
+# - endpoint
+# - region
+```
+
+Access custom fields:
+
+```text
+api_key: {{ passhole "API/Service" "api_key" }}
+endpoint: {{ passhole "API/Service" "endpoint" }}
+region: {{ passhole "API/Service" "region" }}
+```
+
+## Complete Examples
+
+### Multi-Service Configuration
+
+```text ~/.config/services.yml.tmpl
+github:
+  username: {{ passhole "Personal/GitHub" "username" }}
+  token: {{ passhole "Personal/GitHub" "password" }}
+  email: {{ passhole "Personal/GitHub" "email" }}
+
+aws:
+  access_key_id: {{ passhole "Cloud/AWS" "access_key_id" }}
+  secret_access_key: {{ passhole "Cloud/AWS" "secret_access_key" }}
+  region: {{ passhole "Cloud/AWS" "region" }}
+
+database:
+  host: {{ passhole "Work/Database" "url" }}
+  port: 5432
+  username: {{ passhole "Work/Database" "username" }}
+  password: {{ passhole "Work/Database" "password" }}
+  database: production
+
+redis:
+  host: localhost
+  port: 6379
+  password: {{ passhole "Work/Redis" "password" }}
+```
+
+### Application Environment
+
+```text ~/.config/app/.env.tmpl
+# Application
+APP_NAME=myapp
+APP_ENV=production
+APP_KEY={{ passhole "App/Laravel" "app_key" }}
+
+# Database
+DB_HOST={{ passhole "App/Database" "url" }}
+DB_PORT=5432
+DB_DATABASE={{ passhole "App/Database" "database" }}
+DB_USERNAME={{ passhole "App/Database" "username" }}
+DB_PASSWORD={{ passhole "App/Database" "password" }}
+
+# Cache
+REDIS_HOST=localhost
+REDIS_PASSWORD={{ passhole "App/Redis" "password" }}
+REDIS_PORT=6379
+
+# Mail
+MAIL_HOST={{ passhole "App/Mail" "host" }}
+MAIL_PORT={{ passhole "App/Mail" "port" }}
+MAIL_USERNAME={{ passhole "App/Mail" "username" }}
+MAIL_PASSWORD={{ passhole "App/Mail" "password" }}
+
+# AWS
+AWS_ACCESS_KEY_ID={{ passhole "App/AWS" "access_key_id" }}
+AWS_SECRET_ACCESS_KEY={{ passhole "App/AWS" "secret_access_key" }}
+AWS_REGION={{ passhole "App/AWS" "region" }}
+```
+
+## Troubleshooting
+
+### Database Locked
+
+If using `prompt = true`, chezmoi will prompt for your password once per session.
+
+If `prompt = false`, ensure your database is unlocked or use a key file.
+
+### Entry Not Found
+
+List all entries to find the correct path:
+
+```bash
+ph list
+ph show "path/to/entry"
+```
+
+### Command Not Found
+
+Ensure Passhole is installed:
+
+```bash
+which ph
+ph --version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ passhole "Personal/GitHub" "password" }}'
+```
+
+### Field Not Found
+
+View all fields for an entry:
+
+```bash
+ph show "path/to/entry"
+```
+
+## Best Practices
+
+1. **Use groups**: Organize entries in logical groups (Personal, Work, API)
+2. **Consistent paths**: Use a clear naming convention for entry paths
+3. **Custom fields**: Use custom fields for structured data
+4. **Backup database**: Keep encrypted backups of your KeePass database
+5. **Strong master password**: Use a strong password for your database
+6. **Use prompt mode**: Enable `prompt = true` for better security
+7. **Test access**: Verify entries are accessible before templating
+8. **Sync carefully**: If syncing database, ensure it's encrypted
+
+## See Also
+
+- [Passhole GitHub](https://github.com/Evidlo/passhole)
+- [KeePass Website](https://keepass.info/)
+- [KeePassXC](/password-managers/keepassxc) - Alternative KeePass CLI
+- [Template Functions Reference](/reference/templates/password-manager-functions#passhole)

@@ -1,0 +1,409 @@
+---
+title: Keeper
+description: Integrate Keeper Security with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [Keeper Security](https://www.keepersecurity.com/) using the [Commander CLI](https://docs.keeper.io/secrets-manager/commander-cli) to expose data as template functions.
+
+## Setup
+
+### Install Keeper Commander
+
+<CodeGroup>
+```bash Python (pip)
+pip3 install keepercommander
+```
+
+```bash macOS (Homebrew)
+brew install keeper-commander
+```
+</CodeGroup>
+
+### Create Persistent Login Session
+
+Follow the [Keeper CLI documentation](https://docs.keeper.io/secrets-manager/commander-cli/using-commander/logging-in#persistent-login-sessions) to create a persistent login:
+
+```bash
+keeper login
+```
+
+This creates a session that doesn't require re-authentication.
+
+## Template Functions
+
+### `keeperFindPassword`
+
+Find and retrieve a password by path or UID:
+
+```text
+{{ keeperFindPassword "$PATH" }}
+{{ keeperFindPassword "$UID" }}
+```
+
+### `keeper`
+
+Get structured data for a record by UID:
+
+```text
+{{ (keeper "$UID").data.title }}
+{{ (keeper "$UID").data.fields }}
+```
+
+Returns the full JSON output from `keeper get`.
+
+### `keeperDataFields`
+
+Get a simplified field structure indexed by field type:
+
+```text
+{{ index (keeperDataFields "$UID").password 0 }}
+{{ index (keeperDataFields "$UID").url 0 }}
+```
+
+## Usage Examples
+
+### Simple Password Retrieval
+
+<CodeGroup>
+```text By Path
+{{ keeperFindPassword "Personal/GitHub" }}
+```
+
+```text By UID
+{{ keeperFindPassword "jKHj3k4h5j6k7l8m9n0" }}
+```
+</CodeGroup>
+
+### Using Structured Data
+
+```text ~/.gitconfig.tmpl
+{{ $git := keeper "git-config-uid" -}}
+
+[user]
+    name = {{ $git.data.title }}
+    email = {{ index (keeperDataFields "git-config-uid").email 0 }}
+```
+
+### Database Credentials
+
+```text ~/.config/db/config.yml.tmpl
+{{ $db := keeper "prod-db-uid" -}}
+{{ $fields := keeperDataFields "prod-db-uid" -}}
+
+production:
+  host: {{ index $fields.url 0 }}
+  port: 5432
+  username: {{ index $fields.login 0 }}
+  password: {{ index $fields.password 0 }}
+  database: production_db
+```
+
+### AWS Credentials
+
+```text ~/.aws/credentials.tmpl
+{{ $aws := keeperDataFields "aws-credentials-uid" -}}
+
+[default]
+aws_access_key_id = {{ index $aws.login 0 }}
+aws_secret_access_key = {{ index $aws.password 0 }}
+region = us-east-1
+```
+
+### Multiple API Keys
+
+```text ~/.config/api-keys.env.tmpl
+# GitHub
+GITHUB_TOKEN={{ keeperFindPassword "API Keys/GitHub" }}
+
+# GitLab
+GITLAB_TOKEN={{ keeperFindPassword "API Keys/GitLab" }}
+
+# OpenAI
+OPENAI_API_KEY={{ keeperFindPassword "API Keys/OpenAI" }}
+
+# Stripe
+STRIPE_SECRET_KEY={{ keeperFindPassword "API Keys/Stripe" }}
+```
+
+### NPM Configuration
+
+```text ~/.npmrc.tmpl
+{{ $npm := keeperDataFields "npm-token-uid" -}}
+
+//registry.npmjs.org/:_authToken={{ index $npm.password 0 }}
+email={{ index $npm.email 0 }}
+```
+
+### SSH Configuration
+
+```text ~/.ssh/config.tmpl
+{{ $github := keeperDataFields "github-ssh-uid" -}}
+{{ $gitlab := keeperDataFields "gitlab-ssh-uid" -}}
+
+Host github.com
+    User {{ index $github.login 0 }}
+    IdentityFile ~/.ssh/id_ed25519
+
+Host gitlab.com
+    User {{ index $gitlab.login 0 }}
+    IdentityFile ~/.ssh/id_rsa
+```
+
+### Kubernetes Config
+
+```text ~/.kube/config.tmpl
+{{ $k8s := keeper "k8s-cluster-uid" -}}
+{{ $fields := keeperDataFields "k8s-cluster-uid" -}}
+
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: {{ index $fields.url 0 }}
+    certificate-authority-data: {{ index $fields.text 0 }}
+  name: production
+users:
+- name: admin
+  user:
+    token: {{ index $fields.password 0 }}
+contexts:
+- context:
+    cluster: production
+    user: admin
+  name: prod-context
+current-context: prod-context
+```
+
+## Configuration
+
+### Custom Command
+
+If `keeper` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keeper]
+    command = "/custom/path/to/keeper"
+```
+
+### Custom Config File
+
+Pass additional arguments to Keeper CLI:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[keeper]
+    args = ["--config", "/path/to/config.json"]
+```
+
+## Finding Record UIDs
+
+To find a record's UID:
+
+```bash
+# List all records
+keeper list
+
+# Search for a record
+keeper search github
+
+# Get full details
+keeper get "Record Title"
+```
+
+The UID is shown in the output.
+
+## Record Structure
+
+Keeper records have this structure:
+
+```json
+{
+  "data": {
+    "title": "GitHub",
+    "type": "login",
+    "fields": [
+      {
+        "type": "login",
+        "value": "username"
+      },
+      {
+        "type": "password",
+        "value": "secret_password"
+      },
+      {
+        "type": "url",
+        "value": "https://github.com"
+      }
+    ],
+    "custom_fields": []
+  }
+}
+```
+
+## Advanced Usage
+
+### Custom Fields
+
+Access custom fields:
+
+```text
+{{ $record := keeper "record-uid" -}}
+{{ range $record.data.custom_fields -}}
+  {{ if eq .label "API Key" -}}
+    {{ .value }}
+  {{ end -}}
+{{ end }}
+```
+
+### Accessing All Fields
+
+```text
+{{ $record := keeper "record-uid" -}}
+
+Title: {{ $record.data.title }}
+Type: {{ $record.data.type }}
+
+Fields:
+{{ range $record.data.fields -}}
+  Type: {{ .type }}
+  Value: {{ .value }}
+{{ end }}
+```
+
+### Using Variables for Cleaner Templates
+
+```text ~/.config/services.yml.tmpl
+{{- $github := keeperDataFields "github-uid" -}}
+{{- $aws := keeperDataFields "aws-uid" -}}
+{{- $db := keeperDataFields "db-uid" -}}
+
+github:
+  token: {{ index $github.password 0 }}
+  username: {{ index $github.login 0 }}
+
+aws:
+  access_key_id: {{ index $aws.login 0 }}
+  secret_access_key: {{ index $aws.password 0 }}
+
+database:
+  host: {{ index $db.url 0 }}
+  username: {{ index $db.login 0 }}
+  password: {{ index $db.password 0 }}
+```
+
+## Complete Examples
+
+### Multi-Service Configuration
+
+```text ~/.config/app/config.yml.tmpl
+{{- $github := keeper "github-uid" -}}
+{{- $aws := keeper "aws-uid" -}}
+{{- $db := keeper "db-uid" -}}
+{{- $redis := keeper "redis-uid" -}}
+
+application:
+  name: myapp
+  environment: production
+
+github:
+  token: {{ keeperFindPassword "API Keys/GitHub" }}
+
+aws:
+  region: us-east-1
+  access_key_id: {{ index (keeperDataFields "aws-uid").login 0 }}
+  secret_access_key: {{ index (keeperDataFields "aws-uid").password 0 }}
+
+database:
+  host: {{ index (keeperDataFields "db-uid").url 0 }}
+  port: 5432
+  username: {{ index (keeperDataFields "db-uid").login 0 }}
+  password: {{ index (keeperDataFields "db-uid").password 0 }}
+
+redis:
+  url: {{ index (keeperDataFields "redis-uid").url 0 }}
+  password: {{ index (keeperDataFields "redis-uid").password 0 }}
+```
+
+### Environment Variables File
+
+```text ~/.config/env.sh.tmpl
+#!/bin/bash
+
+# GitHub
+export GITHUB_TOKEN="{{ keeperFindPassword "API Keys/GitHub" }}"
+
+# AWS
+export AWS_ACCESS_KEY_ID="{{ index (keeperDataFields "aws-uid").login 0 }}"
+export AWS_SECRET_ACCESS_KEY="{{ index (keeperDataFields "aws-uid").password 0 }}"
+export AWS_DEFAULT_REGION="us-east-1"
+
+# Database
+export DATABASE_URL="postgresql://{{ index (keeperDataFields "db-uid").login 0 }}:{{ index (keeperDataFields "db-uid").password 0 }}@{{ index (keeperDataFields "db-uid").url 0 }}/production"
+
+# API Keys
+export OPENAI_API_KEY="{{ keeperFindPassword "API Keys/OpenAI" }}"
+export STRIPE_SECRET_KEY="{{ keeperFindPassword "API Keys/Stripe" }}"
+```
+
+## Troubleshooting
+
+### Not Logged In
+
+Create a persistent session:
+
+```bash
+keeper login
+```
+
+### Record Not Found
+
+Search for the record:
+
+```bash
+keeper search "record name"
+keeper list
+```
+
+### Command Not Found
+
+Ensure Keeper Commander is installed:
+
+```bash
+which keeper
+keeper version
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ keeperFindPassword "test" }}'
+chezmoi execute-template '{{ keeper "uid" | toJson }}'
+```
+
+### Viewing Record Structure
+
+Inspect a record's full structure:
+
+```bash
+keeper get "Record Title" --format=json | jq .
+```
+
+## Best Practices
+
+1. **Use UIDs**: UIDs are more stable than paths/titles
+2. **Organize records**: Use folders to organize secrets
+3. **Persistent sessions**: Set up persistent login for convenience
+4. **Custom fields**: Use custom fields for structured data
+5. **Test access**: Verify records are accessible before templating
+6. **Document UIDs**: Keep a reference of UIDs used in templates
+7. **Use keeperFindPassword**: Simplest for just retrieving passwords
+8. **Use keeperDataFields**: Better for accessing multiple fields
+9. **Cache awareness**: chezmoi caches results per UID/path
+
+## See Also
+
+- [Keeper Commander Documentation](https://docs.keeper.io/secrets-manager/commander-cli)
+- [Keeper Security Website](https://www.keepersecurity.com/)
+- [Getting Started with Commander](https://docs.keeper.io/secrets-manager/commander-cli/using-commander/getting-started)
+- [Template Functions Reference](/reference/templates/password-manager-functions#keeper)

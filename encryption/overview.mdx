@@ -1,0 +1,121 @@
+---
+title: Encryption Overview
+description: Keep your secrets secure with chezmoi's encryption support
+---
+
+chezmoi supports encrypting files with [age](https://age-encryption.org), [git-crypt](https://github.com/AGWA/git-crypt), [gpg](https://www.gnupg.com/), and [transcrypt](https://github.com/elasticdog/transcrypt).
+
+Encrypted files are stored in ASCII-armored format in the source directory with the `encrypted_` attribute and are automatically decrypted when needed.
+
+## Adding Encrypted Files
+
+Add files to be encrypted with the `--encrypt` flag:
+
+```bash
+chezmoi add --encrypt ~/.ssh/id_rsa
+```
+
+This will encrypt the file and store it in your source directory (typically `~/.local/share/chezmoi`).
+
+## Editing Encrypted Files
+
+`chezmoi edit` will transparently decrypt the file before editing and re-encrypt it afterwards:
+
+```bash
+chezmoi edit ~/.ssh/id_rsa
+```
+
+## Template Functions
+
+chezmoi provides template functions for encrypting and decrypting data within templates:
+
+### `encrypt`
+
+Encrypts plaintext data using your configured encryption method:
+
+```text
+{{ encrypt "my-secret-value" }}
+```
+
+### `decrypt`
+
+Decrypts ciphertext data:
+
+```text
+{{ decrypt "-----BEGIN AGE ENCRYPTED FILE-----..." }}
+```
+
+## Supported Encryption Methods
+
+chezmoi supports several encryption methods:
+
+<CardGroup cols={2}>
+  <Card title="age" icon="key" href="/encryption/age">
+    Modern encryption tool with simple key management
+  </Card>
+  <Card title="gpg" icon="lock" href="/encryption/gpg">
+    Traditional GPG/PGP encryption with asymmetric keys
+  </Card>
+</CardGroup>
+
+## Choosing an Encryption Method
+
+Configure your preferred encryption method in `~/.config/chezmoi/chezmoi.toml`:
+
+```toml
+encryption = "age"  # or "gpg"
+```
+
+<Warning>
+  Make sure `encryption` is added to the top level section at the beginning of the config, before any other sections.
+</Warning>
+
+## How It Works
+
+When you add an encrypted file:
+
+1. chezmoi encrypts the file content using your configured encryption method
+2. The encrypted content is stored with the `encrypted_` prefix in the filename
+3. When applying your dotfiles, chezmoi automatically decrypts the file
+4. The decrypted content is written to the target location
+
+## Best Practices
+
+- **Keep your keys secure**: Store encryption keys outside of your chezmoi source directory
+- **Use different keys per machine**: For sensitive environments, use machine-specific encryption keys
+- **Test decryption**: Verify you can decrypt files before removing the originals
+- **Backup your keys**: Without your encryption keys, your encrypted files cannot be recovered
+
+## Common Use Cases
+
+### SSH Keys
+
+```bash
+chezmoi add --encrypt ~/.ssh/id_rsa
+chezmoi add --encrypt ~/.ssh/id_ed25519
+```
+
+### API Tokens
+
+Store API tokens in an encrypted file:
+
+```bash
+chezmoi add --encrypt ~/.config/api-tokens
+```
+
+### Certificates
+
+```bash
+chezmoi add --encrypt ~/.cert/private-key.pem
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configure age" icon="key" href="/encryption/age">
+    Set up modern encryption with age
+  </Card>
+  <Card title="Configure GPG" icon="lock" href="/encryption/gpg">
+    Set up traditional GPG encryption
+  </Card>
+</CardGroup>

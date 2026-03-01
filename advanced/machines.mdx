@@ -1,0 +1,421 @@
+---
+title: Machine-Specific Configurations
+description: Manage dotfiles across different machines with templates and conditionals
+---
+
+chezmoi excels at managing dotfiles across multiple machines with different operating systems, hardware configurations, and purposes (work vs. personal, laptop vs. desktop, etc.). This guide covers techniques for handling machine-to-machine differences.
+
+## Detecting Machine Characteristics
+
+### Determine Laptop vs. Desktop
+
+You can automatically detect whether a machine is a laptop or desktop and adjust configurations accordingly.
+
+```go title=".chezmoi.toml.tmpl"
+{{- $chassisType := "desktop" }}
+{{- if eq .chezmoi.os "darwin" }}
+{{-   if contains "MacBook" (output "system_profiler" "SPHardwareDataType") }}
+{{-     $chassisType = "laptop" }}
+{{-   else }}
+{{-     $chassisType = "desktop" }}
+{{-   end }}
+{{- else if eq .chezmoi.os "linux" }}
+{{-   $chassisType = (output "hostnamectl" "--json=short" | mustFromJson).Chassis }}
+{{- else if eq .chezmoi.os "windows" }}
+{{-   $chassisType = (output "pwsh.exe" "-NoProfile" "-NonInteractive" "-Command" "if ((Get-CimInstance -Class Win32_Battery | Measure-Object).Count -gt 0) { Write-Output 'laptop' } else { Write-Output 'desktop' }") | trim }}
+{{- end }}
+
+[data]
+    chassisType = {{ $chassisType | quote }}
+```
+
+Use in templates:
+
+```bash title="dot_bashrc.tmpl"
+{{- if eq .chassisType "laptop" }}
+# Laptop-specific settings
+export POWERSAVE=1
+{{- else }}
+# Desktop-specific settings
+export POWERSAVE=0
+{{- end }}
+```
+
+### Detect CPU Cores and Threads
+
+Optimize configurations based on available CPU resources:
+
+```go title=".chezmoi.toml.tmpl"
+{{- $cpuCores := 1 }}
+{{- $cpuThreads := 1 }}
+{{- if eq .chezmoi.os "darwin" }}
+{{-   $cpuCores = (output "sysctl" "-n" "hw.physicalcpu_max") | trim | atoi }}
+{{-   $cpuThreads = (output "sysctl" "-n" "hw.logicalcpu_max") | trim | atoi }}
+{{- else if eq .chezmoi.os "linux" }}
+{{-   $cpuCores = (output "sh" "-c" "lscpu --online --parse | grep --invert-match '^#' | sort --field-separator=',' --key='2,4' --unique | wc --lines") | trim | atoi }}
+{{-   $cpuThreads = (output "sh" "-c" "lscpu --online --parse | grep --invert-match '^#' | wc --lines") | trim | atoi }}
+{{- else if eq .chezmoi.os "windows" }}
+{{-   $cpuCores = (output "pwsh.exe" "-NoProfile" "-NonInteractive" "-Command" "(Get-CimInstance -ClassName 'Win32_Processor').NumberOfCores") | trim | atoi }}
+{{-   $cpuThreads = (output "pwsh.exe" "-NoProfile" "-NonInteractive" "-Command" "(Get-CimInstance -ClassName 'Win32_Processor').NumberOfLogicalProcessors") | trim | atoi }}
+{{- end }}
+
+[data.cpu]
+    cores = {{ $cpuCores }}
+    threads = {{ $cpuThreads }}
+```
+
+Use in build configurations:
+
+```make title="dot_config/make/settings.mk.tmpl"
+# Makefile settings
+MAKEFLAGS += -j{{ .cpu.threads }}
+```
+
+## Operating System Conditionals
+
+### Basic OS Detection
+
+Use the `.chezmoi.os` variable to handle different operating systems:
+
+```bash title="dot_bashrc.tmpl"
+{{- if eq .chezmoi.os "darwin" }}
+# macOS-specific settings
+export HOMEBREW_PREFIX="/opt/homebrew"
+alias ls='ls -G'
+{{- else if eq .chezmoi.os "linux" }}
+# Linux-specific settings
+alias ls='ls --color=auto'
+{{- else if eq .chezmoi.os "windows" }}
+# Windows-specific settings
+alias ls='ls --color=auto'
+{{- end }}
+```
+
+### Linux Distribution Detection
+
+Handle differences between Linux distributions:
+
+```go title=".chezmoi.toml.tmpl"
+{{- $osid := .chezmoi.os -}}
+{{- if hasKey .chezmoi.osRelease "id" -}}
+{{-   $osid = printf "%s-%s" .chezmoi.os .chezmoi.osRelease.id -}}
+{{- end -}}
+
+[data]
+    osid = {{ $osid | quote }}
+```
+
+Use in scripts:
+
+```bash title="run_once_install_packages.sh.tmpl"
+#!/bin/bash
+
+{{- if eq .osid "darwin" }}
+brew install git vim curl
+{{- else if eq .osid "linux-ubuntu" }}
+sudo apt update
+sudo apt install -y git vim curl
+{{- else if eq .osid "linux-fedora" }}
+sudo dnf install -y git vim curl
+{{- else if eq .osid "linux-arch" }}
+sudo pacman -S --noconfirm git vim curl
+{{- end }}
+```
+
+## Platform-Specific Guides
+
+### macOS
+
+#### Use Homebrew Bundle
+
+Manage packages declaratively with a `run_onchange_` script:
+
+```bash title="run_onchange_before_install-packages-darwin.sh.tmpl"
+{{- if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+
+brew bundle --file=/dev/stdin <<EOF
+brew "git"
+brew "vim"
+brew "tmux"
+cask "visual-studio-code"
+cask "iterm2"
+EOF
+{{ end -}}
+```
+
+#### Get Stable Hostname
+
+The `hostname` command can change based on network. Use `scutil` instead:
+
+```go
+{{- $computerName := output "scutil" "--get" "ComputerName" | trim }}
+```
+
+#### Run Scripts After macOS Updates
+
+Automate tasks after system updates:
+
+```bash title="run_onchange_after_macos_update.sh.tmpl"
+{{- if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+
+# This will run whenever macOS is updated
+# {{ output "sw_vers" "--buildVersion" }}
+
+echo "macOS updated, running post-update tasks..."
+# Your post-update commands here
+{{ end -}}
+```
+
+### Linux
+
+#### Combine OS and Distribution Checks
+
+Simplify nested conditionals:
+
+```bash title="dot_bashrc.tmpl"
+{{- if eq .osid "darwin" }}
+# macOS-specific code
+export BROWSER="open"
+{{- else if eq .osid "linux-debian" }}
+# Debian-specific code
+export BROWSER="xdg-open"
+{{- else if eq .osid "linux-fedora" }}
+# Fedora-specific code
+export BROWSER="xdg-open"
+{{- end }}
+```
+
+#### Handle Package Managers
+
+Different distributions use different package managers:
+
+```bash title="run_once_install_tools.sh.tmpl"
+#!/bin/bash
+
+set -e
+
+{{- if eq .osid "linux-ubuntu" }}
+sudo apt update && sudo apt install -y build-essential
+{{- else if eq .osid "linux-fedora" }}
+sudo dnf groupinstall -y "Development Tools"
+{{- else if eq .osid "linux-arch" }}
+sudo pacman -S --noconfirm base-devel
+{{- end }}
+```
+
+### Windows
+
+#### Detect Windows Subsystem for Linux (WSL)
+
+Detect if running in WSL:
+
+```bash title="dot_bashrc.tmpl"
+{{- if eq .chezmoi.os "linux" }}
+{{-   if (.chezmoi.kernel.osrelease | lower | contains "microsoft") }}
+# WSL-specific configuration
+export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
+export BROWSER="wslview"
+{{-   end }}
+{{- end }}
+```
+
+#### Run PowerShell Scripts as Admin
+
+Self-elevate PowerShell scripts:
+
+```powershell title="run_once_install_tools.ps1.tmpl"
+{{- if eq .chezmoi.os "windows" -}}
+# Self-elevate the script if required
+if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
+  if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
+    $CommandLine = "-NoExit -File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
+    Start-Process -Wait -FilePath pwsh.exe -Verb Runas -ArgumentList $CommandLine
+    Exit
+  }
+}
+
+# Your elevated commands here
+winget install Microsoft.VisualStudioCode
+{{ end -}}
+```
+
+#### Create Symlinks on Windows
+
+Enable symlink creation by turning on Developer Mode or setting the appropriate permission.
+
+### Containers and VMs
+
+#### Detect Container Environments
+
+```bash title="dot_bashrc.tmpl"
+{{- if stat "/run/.containerenv" }}
+# Running in Podman
+export IN_CONTAINER=1
+{{- else if stat "/.dockerenv" }}
+# Running in Docker
+export IN_CONTAINER=1
+{{- end }}
+```
+
+#### Minimal Configurations for Containers
+
+Use `.chezmoiignore` to skip unnecessary files in containers:
+
+```text title="dot_chezmoiignore"
+{{- if or (stat "/run/.containerenv") (stat "/.dockerenv") }}
+.config/autostart/
+.local/share/applications/
+{{- end }}
+```
+
+## Hostname-Based Configuration
+
+### Simple Hostname Check
+
+```bash title="dot_gitconfig.tmpl"
+[user]
+    name = Your Name
+{{- if eq .chezmoi.hostname "work-laptop" }}
+    email = you@work.com
+{{- else if eq .chezmoi.hostname "personal-desktop" }}
+    email = you@personal.com
+{{- else }}
+    email = you@default.com
+{{- end }}
+```
+
+### Hostname Patterns
+
+Match multiple machines with similar names:
+
+```bash title="dot_bashrc.tmpl"
+{{- if hasPrefix "work-" .chezmoi.hostname }}
+# Work machine settings
+export WORK_ENV=1
+export http_proxy="http://proxy.work.com:8080"
+{{- end }}
+```
+
+## Interactive Configuration
+
+Prompt for machine-specific data during `chezmoi init`:
+
+```go title=".chezmoi.toml.tmpl"
+{{- $email := promptString "email" -}}
+{{- $work := promptBool "work machine" -}}
+
+[data]
+    email = {{ $email | quote }}
+    work = {{ $work }}
+```
+
+Use the values in your dotfiles:
+
+```gitconfig title="dot_gitconfig.tmpl"
+[user]
+    name = Your Name
+    email = {{ .email }}
+
+{{- if .work }}
+[http]
+    proxy = http://proxy.work.com:8080
+{{- end }}
+```
+
+## Architecture-Specific Configuration
+
+Handle different CPU architectures:
+
+```bash title="dot_bashrc.tmpl"
+{{- if eq .chezmoi.arch "amd64" }}
+export ARCH="x86_64"
+{{- else if eq .chezmoi.arch "arm64" }}
+export ARCH="aarch64"
+{{- end }}
+```
+
+## Best Practices
+
+### Use Data Variables
+
+Store complex logic in your config file template and expose simple variables:
+
+```go title=".chezmoi.toml.tmpl"
+{{- $isWork := or (eq .chezmoi.hostname "work-laptop") (hasPrefix "work-" .chezmoi.hostname) -}}
+{{- $isPersonal := not $isWork -}}
+
+[data]
+    isWork = {{ $isWork }}
+    isPersonal = {{ $isPersonal }}
+```
+
+Use in templates:
+
+```bash title="dot_bashrc.tmpl"
+{{- if .isWork }}
+export http_proxy="http://proxy.work.com:8080"
+{{- end }}
+```
+
+### Keep Templates Simple
+
+Avoid complex logic in individual file templates. Put it in `.chezmoi.toml.tmpl` instead.
+
+### Test on All Machines
+
+Before committing changes, test on all your machines:
+
+```bash
+# See what would change
+chezmoi diff
+
+# Apply changes
+chezmoi apply
+```
+
+### Document Your Variables
+
+Add comments to your config template:
+
+```go title=".chezmoi.toml.tmpl"
+# Detect chassis type (laptop vs desktop)
+{{- $chassisType := "desktop" }}
+# ... detection logic ...
+
+# Prompt for email if not set
+{{- $email := promptString "email" -}}
+
+[data]
+    # Used in .gitconfig and .bashrc
+    email = {{ $email | quote }}
+    # Used for power management settings
+    chassisType = {{ $chassisType | quote }}
+```
+
+## Troubleshooting
+
+### Debug Template Variables
+
+Create a debug file to inspect available variables:
+
+```bash
+chezmoi execute-template '{{ . | toJson }}' | jq .
+```
+
+### Test Templates
+
+Test template rendering without applying:
+
+```bash
+chezmoi execute-template < ~/.local/share/chezmoi/dot_bashrc.tmpl
+```
+
+### Check OS Release Info
+
+On Linux, inspect `/etc/os-release`:
+
+```bash
+chezmoi execute-template '{{ .chezmoi.osRelease | toJson }}' | jq .
+```

@@ -1,0 +1,163 @@
+---
+title: Testing chezmoi
+description: Overview of chezmoi's testing strategy and how to run tests
+---
+
+chemzoi uses multiple levels of testing to ensure code quality and correctness across different platforms and use cases.
+
+## Test Levels
+
+### 1. Unit Testing
+
+Unit tests use the standard [`testing`](https://pkg.go.dev/testing) package and [`github.com/alecthomas/assert/v2`](https://pkg.go.dev/github.com/alecthomas/assert/v2) to test that functions and small components behave as expected for a wide range of inputs, especially edge cases.
+
+- Location: `internal/chezmoi/*_test.go`
+- Purpose: Test individual functions and components in isolation
+
+### 2. File System Integration Tests
+
+Integration tests use `testing` and [`github.com/twpayne/go-vfs/v5`](https://pkg.go.dev/github.com/twpayne/go-vfs/v5) to test chezmoi's effects on the file system.
+
+- Location: `internal/chezmoi/*_test.go` and `internal/cmd/*cmd_test.go`
+- Purpose: Test interactions with the file system in a controlled environment
+
+### 3. High-Level Integration Tests
+
+High-level integration tests use [`github.com/rogpeppe/go-internal/testscript`](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript) to test complete workflows and command interactions.
+
+- Location: `internal/cmd/testdata/scripts/*.txtar`
+- Test runner: `internal/cmd/main_test.go`
+- Purpose: Test complete user workflows and command-line interactions
+
+### 4. Distribution and OS Tests
+
+Full test suite execution across different environments:
+
+- **Linux distributions**: Run using Docker (in `assets/docker`)
+- **Other OSes**: Run using Vagrant (in `assets/vagrant`)
+- **Windows**: Run in GitHub Actions
+- Purpose: Ensure compatibility across different operating systems and distributions
+
+## Running Tests
+
+### Run All Tests
+
+```sh
+go test ./...
+```
+
+Or using make:
+
+```sh
+make test
+```
+
+The make target runs tests with different umask values to ensure correct behavior:
+
+```sh
+# Tests with umask 022
+go test -ldflags="-X chezmoi.io/chezmoi/internal/chezmoitest.umaskStr=0o022" ./...
+
+# Tests with umask 002
+go test -ldflags="-X chezmoi.io/chezmoi/internal/chezmoitest.umaskStr=0o002" ./...
+```
+
+### Run Individual Tests
+
+Run a specific test:
+
+```sh
+go test ./internal/cmd -run=TestScript/$TEST_NAME
+```
+
+For example:
+
+```sh
+go test ./internal/cmd -run=TestScript/add
+```
+
+### Run Docker Tests
+
+Test on specific Linux distributions:
+
+```sh
+make test-docker
+```
+
+This runs tests on Alpine, Arch Linux, and Fedora.
+
+### Run Vagrant Tests
+
+Test on other operating systems:
+
+```sh
+make test-vagrant
+```
+
+This runs tests on FreeBSD 14.
+
+## Code Coverage
+
+Generate a coverage report:
+
+```sh
+make coverage
+```
+
+View coverage in your browser:
+
+```sh
+make coverage-html
+```
+
+## Test Requirements
+
+chezmoi's tests include integration tests with other software. If the other software is not found in `$PATH`, the tests will be skipped. Running the full set of tests requires:
+
+- `age`
+- `base64`
+- `bash`
+- `bzip2`
+- `git`
+- `gpg`
+- `gzip`
+- `perl`
+- `python3`
+- `rage`
+- `ruby`
+- `sed`
+- `sha256sum`
+- `tr`
+- `true`
+- `unzip`
+- `xz`
+- `zip`
+- `zstd`
+
+## Platform Compatibility
+
+Tests should, if at all possible, run unmodified on all operating systems tested in CI:
+
+- Linux
+- macOS
+- Windows
+- FreeBSD
+
+Windows will sometimes need special handling due to its path separator and lack of POSIX-style file permissions.
+
+## Shell Compatibility
+
+<Note>
+If you use `fish` as your primary shell, you may get warnings from Fish during tests. These can be avoided by running tests with `SHELL=bash` or `SHELL=zsh`:
+
+```sh
+SHELL=bash make test
+SHELL=zsh make smoke-test
+SHELL=bash go test ./...
+```
+</Note>
+
+## See Also
+
+- [Architecture](/developer/architecture) - Understanding chezmoi's architecture
+- [Contributing](/developer/contributing) - Guidelines for contributing changes

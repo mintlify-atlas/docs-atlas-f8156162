@@ -1,0 +1,106 @@
+---
+title: 'chezmoi - Manage Your Dotfiles Across Multiple Machines'
+description: 'Securely manage your personal configuration files (dotfiles) across multiple diverse machines, from your laptop to cloud servers'
+---
+
+# Manage Your Dotfiles Across Multiple Machines
+
+chezmoi helps you manage your personal configuration files (dotfiles, like `~/.gitconfig`) across multiple machines.
+
+If you have spent time customizing the tools you use (e.g. shells, editors, and version control systems) and want to keep machines running different accounts (e.g. home and work) and/or different operating systems (e.g. Linux, macOS, and Windows) in sync, while still being able to easily cope with differences from machine to machine, then chezmoi is for you.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quick-start">
+    Get up and running with chezmoi in minutes
+  </Card>
+  <Card title="Installation" icon="download" href="/install">
+    Install chezmoi on your platform
+  </Card>
+  <Card title="User Guide" icon="book" href="https://chezmoi.io/user-guide/setup/">
+    Learn how to use chezmoi effectively
+  </Card>
+  <Card title="Reference" icon="code" href="https://chezmoi.io/reference/">
+    Complete command and template reference
+  </Card>
+</CardGroup>
+
+## What Does chezmoi Do?
+
+chezmoi scales from the trivial (e.g. copying a few dotfiles onto a Raspberry Pi, development container, or virtual machine) to complex long-lived multi-machine development environments (e.g. keeping any number of home and work, Linux, macOS, and Windows machines in sync). 
+
+In all cases you only need to maintain a **single source of truth** (a single branch in git) and getting started only requires adding a single binary to your machine (which you can do with `curl`, `wget`, or `scp`).
+
+chezmoi has strong support for security, allowing you to manage secrets (e.g. passwords, access tokens, and private keys) securely and seamlessly using a password manager and/or encrypt whole files with your favorite encryption tool.
+
+## Key Features
+
+<AccordionGroup>
+  <Accordion title="Flexible" icon="sliders">
+    Share as much configuration across machines as you want, while still being able to control machine-specific details. Your dotfiles can be **templates** using Go `text/template` syntax. Predefined variables allow you to change behavior depending on operating system, architecture, and hostname.
+
+    chezmoi runs on all commonly-used platforms, like **Linux, macOS, and Windows**. It also runs on less commonly-used platforms, like FreeBSD, OpenBSD, and Termux.
+  </Accordion>
+
+  <Accordion title="Personal and Secure" icon="lock">
+    Nothing leaves your machine, unless you want it to. Your configuration remains in a git repo under your control. chezmoi can retrieve secrets from:
+
+    - 1Password, Bitwarden, Dashlane, Keeper, KeePassXC, LastPass
+    - AWS Secrets Manager, Azure Key Vault, Vault
+    - Doppler, pass, gopass, Proton Pass
+    - macOS Keychain, GNOME Keyring
+    - Any command-line utility of your choice
+
+    You can encrypt individual files with **GnuPG** or **age**. You can checkout your dotfiles repo on as many machines as you want without revealing any secrets to anyone.
+  </Accordion>
+
+  <Accordion title="Transparent" icon="eye">
+    chezmoi includes **verbose and dry run modes** so you can review exactly what changes it will make to your home directory before making them. 
+
+    chezmoi's source format uses only regular files and directories that map one-to-one with the files, directories, and symlinks in your home directory that you choose to manage. If you decide not to use chezmoi in the future, it is easy to move your data elsewhere.
+  </Accordion>
+
+  <Accordion title="Declarative and Robust" icon="shield">
+    You declare the desired state of files, directories, and symbolic links in your source of truth and chezmoi updates your home directory to match that state. **What you want is what you get.**
+
+    chezmoi updates all files and symbolic links **atomically**. You will never be left with incomplete files that could lock you out, even if the update process is interrupted.
+  </Accordion>
+
+  <Accordion title="Fast and Easy to Use" icon="bolt">
+    Using chezmoi feels like using git: the commands are similar and chezmoi runs in **fractions of a second**. chezmoi makes most day-to-day operations one line commands, including installation, initialization, and keeping your machines up-to-date.
+
+    chezmoi can pull and apply changes from your dotfiles repo in a single command, and automatically commit and push changes.
+  </Accordion>
+</AccordionGroup>
+
+## Why Use a Dotfile Manager?
+
+Dotfile managers give you the combined benefit of a **consistent environment everywhere** with an **undo command** and a **restore from backup**.
+
+As the core of our development environments become increasingly standardized (e.g. using git at both home and work), and we further customize them, at the same time we increasingly work in ephemeral environments like Docker containers, virtual machines, and GitHub Codespaces.
+
+In the same way that nobody would use an editor without an undo command, or develop software without a version control system, chezmoi brings the investment that you have made in mastering your tools to every environment that you work in.
+
+## What Users Say
+
+<Note>
+"I've been using Chezmoi for more than a year now, across at least 3 computers simultaneously, and I really love it. Most of all, I love how fast I can configure a new machine when I use it. In just a couple minutes of work, I can kick off a process on a brand-new computer that will set up my dotfiles and install all my usual software so it feels like a computer I've been using for years."
+
+— @mike_kasberg
+</Note>
+
+<Note>
+"Regular reminder that chezmoi is the best dotfile manager utility I've used and you can too"
+
+— @mbbroberg
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Install chezmoi" icon="download" href="/install">
+    Choose your preferred installation method
+  </Card>
+  <Card title="Quick Start Guide" icon="rocket" href="/quick-start">
+    Start managing your dotfiles in minutes
+  </Card>
+</CardGroup>

@@ -1,0 +1,159 @@
+---
+title: add
+description: Add files, directories, or symlinks to the source state
+---
+
+The `add` command adds existing files, directories, or symlinks from your home directory to chezmoi's source state. If the target is already in the source state, its source state is replaced with its current state in the destination directory.
+
+## Usage
+
+```bash
+chezmoi add target...
+```
+
+## Description
+
+When you add a file to chezmoi, it copies the file from your home directory to the source directory, applying any naming conventions (like prefixes for attributes) automatically.
+
+## Flags
+
+<ParamField path="-a, --autotemplate" type="boolean" default="false">
+  Automatically generate a template by replacing strings that match variable values from the `data` section of the config file with their respective config names as template strings. Longer substitutions occur before shorter ones. This implies the `--template` option.
+  
+  **Warning:** Uses a greedy algorithm which occasionally generates templates with unwanted variable substitutions. Carefully review any templates it generates.
+</ParamField>
+
+<ParamField path="--create" type="boolean" default="false">
+  Add files that should exist, irrespective of their contents. Sets the `create_` attribute on the added file. A file will be created with the given contents if it doesn't exist, but its contents won't be changed if it already exists. Useful for managing files with an initial state that shouldn't be changed by chezmoi afterwards.
+</ParamField>
+
+<ParamField path="--encrypt" type="boolean" default="false">
+  Encrypt files using the defined encryption method. Can be configured via `add.encrypt` in the config file.
+</ParamField>
+
+<ParamField path="--exact" type="boolean" default="false">
+  Set the `exact` attribute on added directories. Directories with the `exact` attribute are statefully synced between target and source directories.
+  
+  **Warning:** When running `re-add`, any files deleted from the exact target directory will be removed from the source directory. Likewise, any files added to the exact target directory will be added to the source directory.
+</ParamField>
+
+<ParamField path="-f, --follow" type="boolean" default="false">
+  If the last part of a target is a symlink, add the target of the symlink instead of the symlink itself.
+</ParamField>
+
+<ParamField path="--new" type="boolean" default="false">
+  Create a new file if the target does not exist.
+</ParamField>
+
+<ParamField path="-p, --prompt" type="boolean" default="false">
+  Interactively prompt before adding each file.
+</ParamField>
+
+<ParamField path="-q, --quiet" type="boolean" default="false">
+  Suppress warnings about adding ignored entries.
+</ParamField>
+
+<ParamField path="-r, --recursive" type="boolean" default="true">
+  Recurse into subdirectories.
+</ParamField>
+
+<ParamField path="--secrets" type="string" default="warning">
+  Action to take when a secret is found when adding a file. Options: `ignore`, `warning`, `error`. Can be configured via `add.secrets` in the config file.
+</ParamField>
+
+<ParamField path="-T, --template" type="boolean" default="false">
+  Set the `template` attribute on added files and symlinks.
+</ParamField>
+
+<ParamField path="--template-symlinks" type="boolean" default="false">
+  When adding a symlink to an absolute path in the source directory or destination directory, create a symlink template with `.chezmoi.sourceDir` or `.chezmoi.homeDir`. Useful for creating portable absolute symlinks. Can be configured via `add.templateSymlinks` in the config file.
+</ParamField>
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+## Examples
+
+### Add a single file
+
+```bash
+chezmoi add ~/.bashrc
+```
+
+This creates `~/.local/share/chezmoi/dot_bashrc`.
+
+### Add a file as a template
+
+```bash
+chezmoi add ~/.gitconfig --template
+```
+
+This creates `~/.local/share/chezmoi/dot_gitconfig.tmpl`.
+
+### Add and encrypt a private file
+
+```bash
+chezmoi add ~/.ssh/id_rsa --encrypt
+```
+
+This creates an encrypted file in the source directory.
+
+### Add a directory recursively
+
+```bash
+chezmoi add ~/.vim --recursive
+```
+
+### Add an exact directory
+
+```bash
+chezmoi add ~/.oh-my-zsh --exact --recursive
+```
+
+The `exact` attribute ensures the directory in your home directory exactly matches the source state.
+
+### Add with automatic templating
+
+```bash
+chezmoi add ~/.bashrc --autotemplate
+```
+
+This will automatically detect values from your config that appear in the file and convert them to template variables.
+
+### Interactively add files
+
+```bash
+chezmoi add ~/.config --recursive --prompt
+```
+
+You'll be prompted for each file before it's added.
+
+## Notes
+
+<Warning>
+`chezmoi add` will fail if the entry being added is in a directory implicitly created by an external. This is a known limitation.
+</Warning>
+
+<Warning>
+`chezmoi add --exact --recursive DIR` works in predictable but surprising ways for nested directories.
+
+If you haven't previously added any files from `~/.config` to chezmoi and run `chezmoi add --exact --recursive ~/.config/nvim`, chezmoi will consider all files under `~/.config` to be managed, and any file not in `~/.config/nvim` will be removed on your next `chezmoi apply`.
+
+To prevent this, add a `.keep` file first:
+
+```bash
+touch ~/.config/.keep
+chezmoi add ~/.config/.keep
+chezmoi add --recursive --exact ~/.config/nvim
+```
+</Warning>
+
+## Related Commands
+
+- [edit](/commands/edit) - Edit files in the source state
+- [apply](/commands/apply) - Apply changes to the destination directory

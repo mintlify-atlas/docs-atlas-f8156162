@@ -1,0 +1,140 @@
+---
+title: 'What does chezmoi do?'
+description: 'Learn how chezmoi helps manage personal configuration files across multiple machines and operating systems.'
+keywords: ['dotfiles', 'configuration', 'sync', 'cross-platform', 'security']
+icon: 'circle-question'
+---
+
+chezmoi helps you manage your personal configuration files (dotfiles, like `~/.gitconfig`) across multiple machines.
+
+<Info>
+chezmoi is helpful if you have spent time customizing the tools you use (e.g. shells, editors, and version control systems) and want to keep machines running different accounts (e.g. home and work) and/or different operating systems (e.g. Linux, macOS, and Windows) in sync, while still being able to easily cope with differences from machine to machine.
+</Info>
+
+## When should you use chezmoi?
+
+chezmoi scales from the trivial to the complex:
+
+- **Simple use cases**: Copying a few dotfiles onto a Raspberry Pi, development container, or virtual machine
+- **Complex environments**: Keeping any number of home and work, Linux, macOS, and Windows machines in sync
+
+In all cases you only need to maintain a **single source of truth** (a single branch in git) and getting started only requires adding a single binary to your machine (which you can do with `curl`, `wget`, or `scp`).
+
+<Tip>
+chezmoi has strong support for security, allowing you to manage secrets (e.g. passwords, access tokens, and private keys) securely and seamlessly using a password manager and/or encrypt whole files with your favorite encryption tool.
+</Tip>
+
+<Warning>
+If you do not personalize your configuration or only ever use a single operating system with a single account and none of your dotfiles contain secrets, then you might not need chezmoi. Otherwise, read on...
+</Warning>
+
+## Key features
+
+### Flexible
+
+You can share as much configuration across machines as you want, while still being able to control machine-specific details.
+
+<Columns cols={2}>
+  <Card title="Template support" icon="file-code">
+    Your dotfiles can be templates using Go `text/template` syntax. Predefined variables allow you to change behavior depending on operating system, architecture, and hostname.
+  </Card>
+  
+  <Card title="Cross-platform" icon="laptop">
+    Runs on all commonly-used platforms like Linux, macOS, and Windows, plus less common ones like FreeBSD, OpenBSD, and Termux.
+  </Card>
+</Columns>
+
+### Personal and secure
+
+Nothing leaves your machine, unless you want it to. Your configuration remains in a git repo under your control.
+
+<AccordionGroup>
+  <Accordion title="Password manager integration">
+    chezmoi can retrieve secrets from:
+    - 1Password
+    - AWS Secrets Manager
+    - Azure Key Vault
+    - Bitwarden
+    - Dashlane
+    - Doppler
+    - gopass
+    - KeePassXC
+    - Keeper
+    - LastPass
+    - pass
+    - passage
+    - passhole
+    - Proton Pass
+    - Vault
+    - macOS Keychain
+    - GNOME Keyring
+    - Any command-line utility of your choice
+  </Accordion>
+  
+  <Accordion title="File encryption">
+    You can encrypt individual files with GnuPG or age. You can checkout your dotfiles repo on as many machines as you want without revealing any secrets to anyone.
+  </Accordion>
+  
+  <Accordion title="Configuration format">
+    You can write the configuration file in the format of your choice (TOML, JSON, YAML, etc.).
+  </Accordion>
+</AccordionGroup>
+
+### Transparent
+
+chezmoi includes verbose and dry run modes so you can review exactly what changes it will make to your home directory before making them.
+
+<Note>
+chezmoi's source format uses only regular files and directories that map one-to-one with the files, directories, and symlinks in your home directory that you choose to manage. If you decide not to use chezmoi in the future, it is easy to move your data elsewhere.
+</Note>
+
+### Declarative and robust
+
+<Steps>
+  <Step title="Declare desired state">
+    You declare the desired state of files, directories, and symbolic links in your source of truth.
+  </Step>
+  
+  <Step title="chezmoi computes changes">
+    chezmoi calculates the minimal changes needed to match that state.
+  </Step>
+  
+  <Step title="Atomic updates">
+    chezmoi updates all files and symbolic links atomically. You will never be left with incomplete files that could lock you out, even if the update process is interrupted.
+  </Step>
+</Steps>
+
+### Fast and easy to use
+
+Using chezmoi feels like using git: the commands are similar and chezmoi runs in fractions of a second.
+
+<Tip>
+chezmoi makes most day-to-day operations one line commands, including installation, initialization, and keeping your machines up-to-date. chezmoi can pull and apply changes from your dotfiles repo in a single command, and automatically commit and push changes.
+</Tip>
+
+#### Common one-line operations
+
+```bash
+# Pull and apply changes in one command
+chezmoi update
+
+# Initialize and apply dotfiles on a new machine
+chezmoi init --apply https://github.com/username/dotfiles.git
+
+# Add, edit, and apply a file
+chezmoi edit ~/.bashrc
+chezmoi apply
+```
+
+## What you get is what you want
+
+With chezmoi, you declare the desired state and chezmoi makes it happen. The declarative approach means:
+
+- **Predictable outcomes**: What you specify is what you get
+- **Idempotent operations**: Running commands multiple times produces the same result
+- **Safe experimentation**: Dry run mode (`-n`) and verbose mode (`-v`) let you preview changes
+- **Version control**: All changes are tracked in git, giving you a complete history
+
+<Check>
+Ready to get started? Check out the [Quick Start](/quick-start) guide to install and configure chezmoi.
+</Check>

@@ -1,0 +1,193 @@
+---
+title: cd
+description: Launch a shell in the source directory
+---
+
+The `cd` command launches a shell in the chezmoi source directory, making it easy to work with your dotfiles using standard shell commands.
+
+## Usage
+
+```bash
+chezmoi cd [path]
+```
+
+## Description
+
+The `cd` command starts a new shell session in your chezmoi source directory (typically `~/.local/share/chezmoi`). This is useful for performing version control operations, bulk edits, or other file management tasks.
+
+When you exit the shell, you return to your original directory.
+
+The environment variable `CHEZMOI_SUBSHELL=1` is set in the launched shell, which you can use in your shell prompt or scripts to indicate you're in a chezmoi subshell.
+
+## Arguments
+
+<ParamField path="path" type="string">
+  Optional path to open. If provided, chezmoi will:
+  - Open the source directory if the path is the destination directory
+  - Open the corresponding source path if the path is a managed file
+  - If not specified, opens the root of the source directory
+</ParamField>
+
+## Configuration
+
+Configure the shell to use in your config file:
+
+```toml
+[cd]
+    command = "zsh"
+    args = ["-i"]
+```
+
+If not configured, chezmoi uses your current shell (from the `SHELL` environment variable).
+
+## Examples
+
+### Open the source directory
+
+```bash
+chezmoi cd
+```
+
+Opens a shell in `~/.local/share/chezmoi`.
+
+### Navigate to a specific file's location
+
+```bash
+chezmoi cd ~/.bashrc
+```
+
+Opens a shell in the directory containing `dot_bashrc` in the source directory.
+
+### Use with git commands
+
+```bash
+$ chezmoi cd
+$ git status
+$ git add .
+$ git commit -m "Update dotfiles"
+$ git push
+$ exit
+```
+
+### Make bulk changes
+
+```bash
+$ chezmoi cd
+$ find . -name "*.sh" -exec chmod +x {} \;
+$ git add .
+$ git commit -m "Make all scripts executable"
+$ exit
+$ chezmoi apply
+```
+
+## Terminal Output
+
+```bash
+$ chezmoi cd
+$ pwd
+/home/username/.local/share/chezmoi
+$ ls
+dot_bashrc  dot_vimrc  dot_gitconfig.tmpl
+$ exit
+$
+```
+
+## Shell Prompt Integration
+
+You can modify your shell prompt to indicate when you're in a chezmoi subshell:
+
+### Bash
+
+```bash
+if [ -n "$CHEZMOI_SUBSHELL" ]; then
+    PS1="(chezmoi) $PS1"
+fi
+```
+
+### Zsh
+
+```zsh
+if [[ -n "$CHEZMOI_SUBSHELL" ]]; then
+    PROMPT="(chezmoi) $PROMPT"
+fi
+```
+
+### Fish
+
+```fish
+if set -q CHEZMOI_SUBSHELL
+    function fish_prompt
+        echo -n "(chezmoi) "
+        # your normal prompt here
+    end
+end
+```
+
+## Common Workflows
+
+### Version control operations
+
+```bash
+chezmoi cd
+git status
+git add .
+git commit -m "Update config"
+git push
+exit
+```
+
+### Search and replace across files
+
+```bash
+chezmoi cd
+sed -i 's/old-value/new-value/g' dot_*
+git diff
+exit
+chezmoi apply
+```
+
+### Review recent changes
+
+```bash
+chezmoi cd
+git log --oneline -10
+git show HEAD
+exit
+```
+
+## Tips
+
+<Tip>
+The `cd` command is particularly useful when you need to:
+- Perform git operations (commit, push, pull)
+- Use advanced text processing tools (sed, awk, grep)
+- Make bulk changes to multiple files
+- Review file permissions and attributes
+- Work with files that aren't easily accessible via chezmoi commands
+</Tip>
+
+<Note>
+Remember to run `chezmoi apply` after making changes in the source directory if you want those changes reflected in your home directory.
+</Note>
+
+## Alternative Approaches
+
+Instead of using `cd`, you can also:
+
+```bash
+# Direct git operations
+chezmoi git status
+chezmoi git commit -m "message"
+chezmoi git push
+
+# Edit files directly
+chezmoi edit ~/.bashrc
+
+# Use environment variable
+cd $CHEZMOI_SOURCE_DIR
+```
+
+## Related Commands
+
+- [edit](/commands/edit) - Edit specific files in the source directory
+- [apply](/commands/apply) - Apply changes after modifying source files

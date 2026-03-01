@@ -1,0 +1,244 @@
+---
+title: General FAQ
+description: Frequently asked questions about chezmoi
+---
+
+General questions about chezmoi, from getting started to contributing to the project.
+
+<AccordionGroup>
+  <Accordion title="What is chezmoi?">
+    chezmoi is a dotfile manager that helps you manage your personal configuration files (dotfiles) across multiple machines. It stores your dotfiles in a version control repository and provides features like:
+    
+    - **Templates** for machine-specific configurations
+    - **Encryption** for sensitive data
+    - **Cross-platform support** (Linux, macOS, Windows, BSD)
+    - **Password manager integration**
+    - **Scripts** to automate setup tasks
+    
+    Unlike other dotfile managers that use symlinks, chezmoi generates regular files in their final location, enabling more advanced features.
+  </Accordion>
+
+  <Accordion title="Where do I ask a question that isn't answered here?">
+    If your question isn't answered in the documentation, you have several options:
+    
+    - **[Open an issue on GitHub](https://github.com/twpayne/chezmoi/issues/new/choose)** - For bug reports or feature requests
+    - **[Start a discussion](https://github.com/twpayne/chezmoi/discussions/new)** - For general questions and community help
+    - **Browse [existing issues](https://github.com/twpayne/chezmoi/issues?q=is%3Aissue+label%3Asupport)** - Your question may already be answered
+    - **Check [discussions](https://github.com/twpayne/chezmoi/discussions)** - See what others are asking
+    
+    The community is friendly and responsive!
+  </Accordion>
+
+  <Accordion title="I like chezmoi. How do I say thanks?">
+    Thank you! chezmoi was created to solve a personal need, and it's wonderful that it's useful to you. Here are ways to show your support:
+    
+    **Give chezmoi a star:**
+    - Visit the [GitHub repository](https://github.com/twpayne/chezmoi/stargazers) and click the star button
+    
+    **Share your dotfiles:**
+    - If you have a public dotfiles repository, [tag it with `chezmoi`](https://github.com/topics/chezmoi?o=desc&s=updated)
+    - This helps others discover chezmoi and see real-world examples
+    
+    **Write or present about chezmoi:**
+    - Written an article or blog post? [Let us know](https://github.com/twpayne/chezmoi/issues/new/choose)
+    - Given a talk or presentation? We'd love to add it to our [videos page](https://chezmoi.io/links/videos/)
+    - Created a podcast episode? Share it for our [podcasts page](https://chezmoi.io/links/podcasts/)
+    
+    **Contribute:**
+    - [Contributions are very welcome](https://chezmoi.io/developer-guide/contributing-changes/) - code, docs, bug reports, and feature requests all help make chezmoi better
+    - Every contribution, no matter how small, is appreciated!
+  </Accordion>
+
+  <Accordion title="Who created chezmoi and why?">
+    chezmoi was created by Tom Payne to manage his personal dotfiles across multiple machines. The name "chezmoi" comes from the French "chez moi" (pronounced shay-mwa), meaning "at my house" or "at my place."
+    
+    The project was inspired by Puppet but designed specifically for personal dotfile management rather than full system configuration. The goal was to create a tool that:
+    - Works without root access
+    - Runs on any platform
+    - Has minimal dependencies (single binary)
+    - Provides advanced features like templates and encryption
+  </Accordion>
+
+  <Accordion title="Is chezmoi free and open source?">
+    Yes! chezmoi is completely free and open source, licensed under the MIT License. You can:
+    
+    - Use it for personal or commercial purposes
+    - Modify it to suit your needs
+    - Distribute it freely
+    - View the source code on [GitHub](https://github.com/twpayne/chezmoi)
+    
+    The project welcomes contributions from the community.
+  </Accordion>
+
+  <Accordion title="What does the name 'chezmoi' mean?">
+    "chezmoi" comes from the French phrase "chez moi" (pronounced /ʃeˈmwa/ or shay-mwa), which means "at my house" or "at my place."
+    
+    **Why this name?**
+    - It's fitting for a tool that manages your personal environment
+    - At 7 letters, it's short enough for occasional use but not so short that you need an alias
+    
+    **Want a shorter command?**
+    Add an alias to your shell configuration:
+    
+    ```bash
+    alias cz=chezmoi
+    ```
+    
+    Then use `cz apply`, `cz edit`, etc.
+  </Accordion>
+
+  <Accordion title="How is chezmoi different from other dotfile managers?">
+    chezmoi differs from other dotfile managers in several key ways:
+    
+    **vs. Symlink-based managers (GNU Stow, rcm):**
+    - chezmoi creates regular files, not symlinks
+    - Enables templates, encryption, and per-machine customization
+    - Works better on Windows (no symlink permission issues)
+    
+    **vs. Bare git repos:**
+    - Separate source directory keeps your home directory clean
+    - Built-in diff and apply workflow
+    - Template and encryption support
+    
+    **vs. Configuration management (Ansible, Chef, Puppet):**
+    - Single binary with no dependencies
+    - Doesn't require root access
+    - Focused on personal dotfiles, not system configuration
+    - Much simpler to learn and use
+    
+    See the [migration guide](/advanced/migrating-from-another-dotfile-manager) for detailed comparisons.
+  </Accordion>
+
+  <Accordion title="Can I use chezmoi with my existing dotfiles?">
+    Yes! You can migrate from any dotfile setup:
+    
+    **From symlink-based managers:**
+    ```bash
+    chezmoi add --follow ~/.bashrc ~/.zshrc
+    ```
+    
+    **From existing dotfiles in your home directory:**
+    ```bash
+    chezmoi add ~/.bashrc ~/.zshrc ~/.gitconfig
+    chezmoi add ~/.config/nvim
+    ```
+    
+    **From a bare git repository:**
+    ```bash
+    # List tracked files and add them
+    config ls-tree --full-tree -r --name-only HEAD | xargs -I {} chezmoi add ~/{}
+    ```
+    
+    See the [migration guide](/advanced/migrating-from-another-dotfile-manager) for detailed instructions.
+  </Accordion>
+
+  <Accordion title="Does chezmoi work on Windows?">
+    Yes! chezmoi has full Windows support:
+    
+    - Native Windows binary available
+    - Works in PowerShell, Command Prompt, and Windows Terminal
+    - Supports Windows Subsystem for Linux (WSL)
+    - Handles Windows-specific file permissions
+    
+    Install on Windows:
+    ```powershell
+    # Using winget
+    winget install twpayne.chezmoi
+    
+    # Using Scoop
+    scoop install chezmoi
+    
+    # Using Chocolatey
+    choco install chezmoi
+    ```
+  </Accordion>
+
+  <Accordion title="Can I try chezmoi without committing to it?">
+    Absolutely! chezmoi is designed to be safe and reversible:
+    
+    **Preview changes before applying:**
+    ```bash
+    chezmoi init
+    chezmoi add ~/.bashrc
+    chezmoi diff  # See what would change
+    ```
+    
+    **Remove chezmoi completely:**
+    ```bash
+    # Remove source directory
+    rm -rf ~/.local/share/chezmoi
+    
+    # Remove config
+    rm -rf ~/.config/chezmoi
+    
+    # Uninstall binary (depends on installation method)
+    ```
+    
+    Your actual dotfiles are never modified until you run `chezmoi apply`, and even then you can review changes with `chezmoi diff` first.
+  </Accordion>
+
+  <Accordion title="How do I update chezmoi to the latest version?">
+    The update method depends on how you installed chezmoi:
+    
+    **Homebrew (macOS/Linux):**
+    ```bash
+    brew upgrade chezmoi
+    ```
+    
+    **apt (Debian/Ubuntu):**
+    ```bash
+    sudo apt update && sudo apt upgrade chezmoi
+    ```
+    
+    **pacman (Arch Linux):**
+    ```bash
+    sudo pacman -Syu chezmoi
+    ```
+    
+    **winget (Windows):**
+    ```powershell
+    winget upgrade twpayne.chezmoi
+    ```
+    
+    **Script installation:**
+    ```bash
+    sh -c "$(curl -fsLS get.chezmoi.io)" -- -b ~/.local/bin
+    ```
+  </Accordion>
+
+  <Accordion title="Where can I find examples of chezmoi configurations?">
+    There are many public dotfile repositories using chezmoi:
+    
+    **GitHub Topics:**
+    - Browse repositories tagged with [`chezmoi`](https://github.com/topics/chezmoi?o=desc&s=updated)
+    - Sort by recently updated to see active configurations
+    
+    **Official Resources:**
+    - [Example configurations](https://chezmoi.io/user-guide/setup/)
+    - [Template examples](https://chezmoi.io/user-guide/templating/)
+    - [Real-world use cases](https://chezmoi.io/links/articles/)
+    
+    **Learning tips:**
+    - Look for repositories with similar setups to yours
+    - Check how others handle machine-specific configurations
+    - See examples of password manager integration
+    - Learn from script usage patterns
+  </Accordion>
+
+  <Accordion title="Is there a chezmoi community?">
+    Yes! The chezmoi community is active and welcoming:
+    
+    **GitHub:**
+    - [Discussions](https://github.com/twpayne/chezmoi/discussions) - Ask questions and share tips
+    - [Issues](https://github.com/twpayne/chezmoi/issues) - Report bugs and request features
+    
+    **Articles and Videos:**
+    - [Articles about chezmoi](https://chezmoi.io/links/articles/)
+    - [Video tutorials](https://chezmoi.io/links/videos/)
+    - [Podcast episodes](https://chezmoi.io/links/podcasts/)
+    
+    **Contributing:**
+    - [Contribution guidelines](https://chezmoi.io/developer-guide/contributing-changes/)
+    - [Developer documentation](https://chezmoi.io/developer-guide/)
+  </Accordion>
+</AccordionGroup>

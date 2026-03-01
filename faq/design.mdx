@@ -1,0 +1,426 @@
+---
+title: Design Decisions FAQ
+description: Frequently asked questions about chezmoi's design and architecture
+---
+
+Questions about why chezmoi works the way it does, and the reasoning behind key design decisions.
+
+<AccordionGroup>
+  <Accordion title="Do I have to use `chezmoi edit` to edit my dotfiles?">
+    No, you don't have to! `chezmoi edit` is a convenience command with useful features, but there are multiple ways to edit your dotfiles.
+    
+    **Option 1: Use `chezmoi edit`** (recommended for most users)
+    ```bash
+    chezmoi edit ~/.bashrc
+    chezmoi edit --apply ~/.bashrc  # Apply after editing
+    chezmoi edit --watch ~/.bashrc  # Auto-apply on save
+    ```
+    
+    **Benefits:**
+    - Automatically handles encryption/decryption
+    - Works with target paths (not source paths)
+    - Syntax highlighting works correctly
+    - Can auto-apply changes with `--apply`
+    - Integrates with git auto-commit/push
+    
+    **Option 2: Edit in source directory**
+    ```bash
+    chezmoi cd  # Open shell in source directory
+    vim dot_bashrc  # Edit directly
+    chezmoi diff  # Preview changes
+    chezmoi apply  # Apply if happy
+    ```
+    
+    **Option 3: Edit target, then re-add**
+    ```bash
+    vim ~/.bashrc  # Edit in place
+    chezmoi re-add  # Update source state
+    ```
+    
+    **Option 4: Edit target, then merge**
+    ```bash
+    vim ~/.bashrc
+    chezmoi merge ~/.bashrc  # Resolve differences
+    ```
+    
+    Choose the workflow that fits your style!
+  </Accordion>
+
+  <Accordion title="Why doesn't chezmoi use symlinks like GNU Stow?">
+    chezmoi **does** support symlinks as first-class citizens - you can create, update, and remove symlinks, and even template them to point to different targets on different machines.
+    
+    However, unlike GNU Stow, chezmoi doesn't **require** symlinks as a layer of indirection between your dotfiles and their content.
+    
+    **GNU Stow approach:**
+    - Home directory files are symlinks pointing to a central directory
+    - Your dotfiles are "special" (they're actually symlinks)
+    - Changes to the central directory are immediately visible
+    
+    **chezmoi approach:**
+    - Home directory files are regular files
+    - Your dotfiles are "normal" (no special symlink behavior)
+    - Provides features impossible with symlinks (encryption, templates, private files)
+    
+    **Why regular files are better for dotfiles:**
+    
+    1. **Advanced features:**
+       - Encrypted files (can't symlink to ciphertext)
+       - Template files (can't symlink to template source)
+       - Private files (can't control permissions via symlink)
+       - Executable files (git doesn't track executable bit)
+    
+    2. **Cross-platform compatibility:**
+       - Windows has limited symlink support
+       - No permission issues on Windows
+       - Works the same everywhere
+    
+    3. **Security:**
+       - Encrypted secrets stay encrypted
+       - Private files have correct permissions
+       - No accidental exposure via symlink
+    
+    **If you really want symlinks:**
+    
+    chezmoi provides a symlink mode:
+    ```toml
+    # ~/.config/chezmoi/chezmoi.toml
+    mode = "symlink"
+    ```
+    
+    However, this has limitations (see limitations below).
+  </Accordion>
+
+  <Accordion title="What are the limitations of chezmoi's symlink mode?">
+    When you enable symlink mode, chezmoi creates symlinks back to the source directory where possible. However, many features require regular files:
+    
+    **Cannot use symlinks for:**
+    
+    1. **Encrypted files** - The source contains ciphertext, not plaintext
+    2. **Executable files** - Source files must be regular files for portability
+    3. **Private files** - Git doesn't persist group/world permission bits
+    4. **Template files** - The source contains the template, not the result
+    5. **Entire directories** - Attributes and exact_ behavior don't work
+    
+    **Other limitations:**
+    - Running `chezmoi add` doesn't immediately create symlinks
+    - You must run `chezmoi apply` to create symlinks
+    - Mixed file types in the same directory can be confusing
+    
+    **When to use symlink mode:**
+    - You have simple dotfiles without templates or encryption
+    - You want immediate visibility of changes
+    - You're transitioning from GNU Stow
+    
+    **When NOT to use symlink mode:**
+    - You need encryption
+    - You want machine-specific configurations (templates)
+    - You manage dotfiles on Windows
+    - You need executable or private files
+  </Accordion>
+
+  <Accordion title="Why does chezmoi use weird filenames?">
+    chezmoi's filename convention (like `dot_bashrc`, `private_dot_ssh`) is a deliberate design choice with important benefits.
+    
+    **The criticism:**
+    - Filenames are verbose and unusual
+    - Not all file permissions can be represented
+    - Everything is in a single directory
+    
+    **The reasoning:**
+    
+    1. **Metadata in filenames is universal**
+       - Almost all programs store metadata in filenames (the extension)
+       - chezmoi extends this to prefixes (attributes)
+    
+    2. **Transparency and clarity**
+       - `dot_` makes it obvious which files are managed
+       - Files starting with `.` are ignored by chezmoi (for version control)
+       - No special whitelists needed for `.git`, `.gitignore`, etc.
+    
+    3. **Simplicity and atomicity**
+       - Each file's metadata is stored with the file
+       - Adding/removing a file touches only that file
+       - Changing attributes is a simple rename
+       - No need to parse/update a central config file
+    
+    4. **Version control friendly**
+       - Changes to metadata are simple git operations
+       - Easy to see what changed in git history
+       - Comments and formatting are never lost
+    
+    **Supported permissions:**
+    
+    chezmoi's attributes support the most common permission combinations:
+    - `0o644`, `0o755`, `0o600`, `0o700`, `0o444`, `0o555`, `0o400`, `0o500`
+    - Directories: `0o755`, `0o700`, `0o500`
+    
+    In practice, these cover 99% of dotfile use cases.
+    
+    **The directory issue:**
+    
+    Yes, all root-level dotfiles appear in the source root. Mitigate this with `.chezmoiroot`:
+    
+    ```bash
+    echo "home" > ~/.local/share/chezmoi/.chezmoiroot
+    ```
+    
+    Now your dotfiles live in the `home/` subdirectory, keeping the repo root clean.
+    
+    **Backwards compatibility:**
+    
+    chezmoi has many users, so the filename convention must remain stable. Any changes would need to:
+    1. Be fully backwards-compatible
+    2. Fix a genuine real-world problem
+    3. Work across all operating systems
+    4. Not add significant complexity
+  </Accordion>
+
+  <Accordion title="Can chezmoi support multiple sources or multiple source states?">
+    chezmoi deliberately uses a **single source of truth** - one branch in one git repo. This is an opinionated design choice to avoid complexity and ambiguity.
+    
+    **Why single source?**
+    
+    Multiple sources create problems:
+    
+    1. **Ambiguous user interface:**
+       - `chezmoi add ~/.bashrc` - which source should this go to?
+       - How does the user specify their preference?
+    
+    2. **Overlapping targets:**
+       - What if two sources both want to set `$EDITOR` in `.bashrc`?
+       - How do you handle mutually exclusive configs (vim vs emacs)?
+    
+    3. **Dependencies between sources:**
+       - Should shell completions be with the app or the shell?
+       - Hard to maintain clean separation
+    
+    **How chezmoi handles variation:**
+    
+    Instead of multiple sources, use:
+    - **Templates** for minor differences
+    - **`.chezmoiignore`** to exclude files on certain machines
+    - **Password managers** for secrets (not stored in repo)
+    - **Externals** to pull in third-party dotfiles
+    
+    **If you really need multiple sources:**
+    
+    **Option 1: Multiple apply commands**
+    ```bash
+    chezmoi-apply() {
+        chezmoi apply --config ~/.config/chezmoi-home/chezmoi.toml \
+                      --source ~/.local/share/chezmoi-home && \
+        chezmoi apply --config ~/.config/chezmoi-work/chezmoi.toml \
+                      --source ~/.local/share/chezmoi-work
+    }
+    ```
+    
+    **Option 2: Combine sources before applying**
+    ```bash
+    #!/bin/bash
+    combined_source="$(mktemp -d)"
+    trap 'rm -rf -- "${combined_source}"' INT TERM
+    
+    for source in $HOME/.dotfiles/*; do
+        cp -r "${source}"/* "${combined_source}"
+    done
+    
+    chezmoi apply --source "${combined_source}"
+    ```
+    
+    **Option 3: Nested chezmoi**
+    Use a `run_` script to invoke a second chezmoi instance. See [felipecrs/dotfiles](https://github.com/felipecrs/dotfiles) for an example.
+  </Accordion>
+
+  <Accordion title="Why does `chezmoi cd` spawn a shell instead of just changing directory?">
+    This is a technical limitation, not a design choice.
+    
+    **The problem:**
+    A program cannot change the working directory of its parent process. When you run `chezmoi cd`, it's running as a child process of your shell - it can only change its own directory, not your shell's.
+    
+    **The workaround:**
+    
+    Create a shell function instead:
+    
+    ```bash
+    # Add to ~/.bashrc or ~/.zshrc
+    chezmoi-cd() {
+        cd $(chezmoi source-path)
+    }
+    ```
+    
+    Or as an alias:
+    ```bash
+    alias ccd='cd $(chezmoi source-path)'
+    ```
+    
+    Now typing `chezmoi-cd` or `ccd` changes your current shell's directory.
+  </Accordion>
+
+  <Accordion title="Why are the `prompt*` functions only available in config file templates?">
+    The `promptString`, `promptBool`, and similar functions only work during `chezmoi init` because prompting during normal operations would be disruptive.
+    
+    **The problem:**
+    
+    chezmoi executes templates for many commands:
+    - `chezmoi apply`
+    - `chezmoi diff`
+    - `chezmoi status`
+    - Many others
+    
+    If templates could prompt interactively, you'd have to answer questions every time you run any command. This would quickly become tiresome.
+    
+    **The solution:**
+    
+    Prompt once during initialization:
+    
+    ```go title=".chezmoi.toml.tmpl"
+    {{- $email := promptString "email" -}}
+    {{- $work := promptBool "work machine" -}}
+    
+    [data]
+        email = {{ $email | quote }}
+        work = {{ $work }}
+    ```
+    
+    Then use the values in other templates:
+    
+    ```gitconfig title="dot_gitconfig.tmpl"
+    [user]
+        email = {{ .email }}
+    ```
+    
+    **Re-prompting:**
+    
+    If you need to change answers:
+    ```bash
+    chezmoi init  # Prompts again
+    ```
+  </Accordion>
+
+  <Accordion title="Why not use Ansible/Chef/Puppet/Salt to manage dotfiles?">
+    You **can** use full system management tools for dotfiles, but chezmoi is purpose-built for this specific use case.
+    
+    **chezmoi advantages:**
+    
+    1. **Simplicity:**
+       - Single binary, no dependencies
+       - Small, focused feature set
+       - Easy to learn (not a full configuration management system)
+    
+    2. **Easy installation:**
+       - Copy one binary - done
+       - No scripting runtime required
+       - No packages to install
+       - No system services needed
+       - No root access required
+    
+    3. **Runs everywhere:**
+       - ARM-based Linux systems
+       - Windows desktops
+       - Lightweight containers
+       - FreeBSD VMs
+       - Any platform with a binary available
+    
+    4. **User focus:**
+       - Designed for personal configurations
+       - No need to learn system administration concepts
+       - Quick to get started
+    
+    **When to use system management tools:**
+    
+    Use Ansible/Chef/Puppet/Salt when:
+    - You need to manage system configuration (not just dotfiles)
+    - You're managing multiple users or servers
+    - You need complex orchestration
+    - You already know these tools
+    
+    **Hybrid approach:**
+    
+    You can use both! Let chezmoi manage dotfiles, and call system management tools from scripts:
+    
+    ```bash title="run_once_configure_system.sh"
+    #!/bin/bash
+    # Let Ansible handle system configuration
+    ansible-playbook ~/.local/share/chezmoi/ansible/playbook.yml
+    ```
+    
+    Keep your Ansible playbooks in `.chezmoiignore` so they don't pollute your home directory.
+  </Accordion>
+
+  <Accordion title="Can I use chezmoi to manage files outside my home directory?">
+    Technically yes, but this is **strongly discouraged** for anything beyond simple cases.
+    
+    **chezmoi is designed for:**
+    - Managing personal dotfiles in your home directory
+    - Running without root access
+    - User-level configuration
+    
+    **chezmoi is NOT designed for:**
+    - System-wide configuration files
+    - Managing `/etc/`
+    - Multi-user setups
+    
+    **Simple cases that work:**
+    
+    Use a `run_` script to handle a few files:
+    
+    ```bash title="run_after_copy_system_file.sh"
+    #!/bin/bash
+    # Copy a file to /etc (requires sudo)
+    sudo cp ~/.local/etc/hosts /etc/hosts
+    ```
+    
+    Or create a symlink:
+    ```bash title="run_after_link_system_file.sh"
+    #!/bin/bash
+    sudo ln -sf ~/config/app.conf /etc/app/app.conf
+    ```
+    
+    **For anything more complex:**
+    
+    Use proper system configuration management tools:
+    - [Ansible](https://www.ansible.com/)
+    - [Puppet](https://puppet.com/)
+    - [Chef](https://www.chef.io/)
+    - [Salt](https://saltproject.io/)
+    
+    These tools are designed for system-wide configuration and handle:
+    - Package management
+    - Service configuration
+    - Multi-user setups
+    - Privilege escalation
+    - System state management
+    
+    You can call these from chezmoi scripts, keeping your system configs in `.chezmoiignore`.
+  </Accordion>
+
+  <Accordion title="What inspired chezmoi?">
+    chezmoi was inspired by [Puppet](https://puppet.com/), a powerful system configuration management tool.
+    
+    **Why not just use Puppet?**
+    
+    Puppet is excellent for its intended use case (system administration), but it's overkill for personal dotfiles:
+    - Requires Ruby and many dependencies
+    - Needs system services running
+    - Requires root access to install
+    - Has a steep learning curve
+    - Designed for managing servers, not personal configs
+    
+    **What chezmoi borrowed from Puppet:**
+    - The concept of desired state vs. current state
+    - Idempotent operations
+    - Declarative configuration
+    - Dry-run mode (diff before apply)
+    
+    **What chezmoi does differently:**
+    - Single binary with no dependencies
+    - User-focused (no root required)
+    - Simplified feature set
+    - Cross-platform support
+    - Designed specifically for dotfiles
+    
+    **The future:**
+    
+    chezmoi will always focus on personal dotfile management. If your needs grow beyond that (managing multiple machines, system configuration, etc.), switch to a full system configuration management tool like Puppet, Ansible, Chef, or Salt.
+  </Accordion>
+</AccordionGroup>

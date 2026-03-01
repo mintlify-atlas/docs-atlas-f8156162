@@ -1,0 +1,174 @@
+---
+title: cat
+description: Print the target contents of files, scripts, or symlinks
+---
+
+The `cat` command prints the target contents of one or more files, scripts, or symlinks. For templates, it shows the evaluated output.
+
+## Usage
+
+```bash
+chezmoi cat target...
+```
+
+## Description
+
+The `cat` command displays what chezmoi would write to your destination directory for the specified targets. This is useful for:
+
+- **Templates**: See the evaluated output without applying
+- **Encrypted files**: View decrypted contents without saving to disk  
+- **Scripts**: Preview script contents
+- **Symlinks**: Show symlink targets
+
+Unlike `chezmoi apply`, this command doesn't modify any files.
+
+## Examples
+
+### View a template's output
+
+```bash
+chezmoi cat ~/.gitconfig
+```
+
+If `~/.gitconfig` is a template, this shows the evaluated version with all template variables replaced.
+
+### View an encrypted file
+
+```bash
+chezmoi cat ~/.ssh/config
+```
+
+If the file is encrypted, chezmoi decrypts it and prints the plaintext.
+
+### View multiple files
+
+```bash
+chezmoi cat ~/.bashrc ~/.zshrc
+```
+
+Prints the contents of both files concatenated.
+
+### View a symlink target
+
+```bash
+chezmoi cat ~/.config/nvim
+```
+
+For symlinks, prints the link target followed by a newline.
+
+### Pipe to other commands
+
+```bash
+chezmoi cat ~/.bashrc | grep alias
+```
+
+Search through the target contents.
+
+### Compare template output with destination
+
+```bash
+diff <(chezmoi cat ~/.bashrc) ~/.bashrc
+```
+
+See differences between the target state and current file.
+
+## Terminal Output
+
+```bash
+$ chezmoi cat ~/.gitconfig
+[user]
+    name = John Doe
+    email = john@example.com
+[core]
+    editor = nvim
+```
+
+## Use Cases
+
+### Debug templates
+
+When a template isn't evaluating correctly:
+
+```bash
+chezmoi cat ~/.bashrc
+```
+
+See the actual output and identify template errors.
+
+### Verify encryption
+
+Check that a file is properly encrypted in the source:
+
+```bash
+# This should show plaintext
+chezmoi cat ~/.ssh/id_rsa
+
+# This should show encrypted data
+cat ~/.local/share/chezmoi/private_dot_ssh/encrypted_private_id_rsa.age
+```
+
+### Preview before applying
+
+```bash
+# See what will be written
+chezmoi cat ~/.bashrc
+
+# Compare with current file  
+diff <(chezmoi cat ~/.bashrc) ~/.bashrc
+
+# Apply if satisfied
+chezmoi apply ~/.bashrc
+```
+
+### Extract specific content
+
+```bash
+# Get all aliases from bashrc
+chezmoi cat ~/.bashrc | grep "^alias"
+
+# Count lines in the target
+chezmoi cat ~/.vimrc | wc -l
+```
+
+## Template Debugging Example
+
+Source template (`dot_bashrc.tmpl`):
+```bash
+export EDITOR={{ .editor }}
+export PATH=$HOME/bin:$PATH
+{{ if eq .chezmoi.os "darwin" }}
+alias ls="ls -G"
+{{ else }}
+alias ls="ls --color=auto"
+{{ end }}
+```
+
+View the evaluated output:
+```bash
+$ chezmoi cat ~/.bashrc
+export EDITOR=nvim
+export PATH=$HOME/bin:$PATH
+alias ls="ls --color=auto"
+```
+
+## Error Messages
+
+If a target is not a file, script, or symlink:
+
+```bash
+$ chezmoi cat ~/.config
+error: .config: not a file, script, or symlink
+```
+
+If a template has errors:
+
+```bash
+$ chezmoi cat ~/.bashrc  
+error: .bashrc: template: dot_bashrc.tmpl:5: undefined variable "editr"
+```
+
+## Related Commands
+
+- [apply](/commands/apply) - Apply the files shown by cat
+- [execute-template](/commands/execute-template) - Execute arbitrary templates
+- [diff](/commands/diff) - Show differences between target and destination

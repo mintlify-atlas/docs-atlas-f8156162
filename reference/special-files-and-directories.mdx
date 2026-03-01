@@ -1,0 +1,235 @@
+---
+title: Special Files and Directories
+description: Special files and directories in chezmoi's source directory
+---
+
+# Special Files and Directories
+
+All files and directories in the source directory whose name begins with `.` are ignored by default, unless they are one of the special files or directories listed here. All of these files and directories are optional and are evaluated in a specific order.
+
+## Special Files
+
+### Processing Order
+
+Special files are processed in the following order:
+
+1. **`.chezmoiroot`** - Sets the source state path
+2. **`.chezmoi.$FORMAT.tmpl`** - Prepares or updates the chezmoi config file
+3. **`.chezmoidata.$FORMAT`** - Provides data for templates
+4. **`.chezmoitemplates/`** - Makes templates available for use
+5. **`.chezmoiignore`** - Determines files to ignore
+6. **`.chezmoiremove`** - Determines files to remove
+7. **`.chezmoiexternal.$FORMAT`** - Includes external files and archives
+8. **`.chezmoiversion`** - Ensures minimum chezmoi version
+
+## `.chezmoiroot`
+
+The `.chezmoiroot` file is read from the root of the source directory before any other file. It sets the source state path, which affects the location of all other files except `.chezmoiversion`.
+
+### Example
+
+```text title="~/.local/share/chezmoi/.chezmoiroot"
+home
+```
+
+This makes chezmoi read the source state from `~/.local/share/chezmoi/home` instead of `~/.local/share/chezmoi`.
+
+## `.chezmoi.$FORMAT.tmpl`
+
+This file is used by [`chezmoi init`](/commands/init) to prepare or update the chezmoi config file. It is also used when a command supports the `--init` flag, such as `chezmoi apply --init`.
+
+The file is processed as a template and the result is written to the config file.
+
+### Example
+
+```toml title="~/.local/share/chezmoi/.chezmoi.toml.tmpl"
+{{- $email := promptStringOnce . "email" "Email address" -}}
+{{- $name := promptStringOnce . "name" "Full name" -}}
+
+[data]
+    email = {{ $email | quote }}
+    name = {{ $name | quote }}
+```
+
+## `.chezmoidata.$FORMAT`
+
+Data files are read before any templates are processed, making their contents available to templates via the `.` variable.
+
+Supported formats: `.json`, `.jsonc`, `.toml`, `.yaml`
+
+### Example
+
+```yaml title="~/.local/share/chezmoi/.chezmoidata.yaml"
+packages:
+  - vim
+  - git
+  - tmux
+email: user@example.com
+```
+
+Access in templates:
+
+```bash title="dot_gitconfig.tmpl"
+[user]
+    email = {{ .email }}
+
+# Install packages: {{ range .packages }}{{ . }} {{ end }}
+```
+
+## `.chezmoidata/`
+
+Directory containing multiple data files. Files are read in lexical order along with any `.chezmoidata.$FORMAT` files in the source state.
+
+All files in this directory are merged into the template data.
+
+### Example
+
+```text
+~/.local/share/chezmoi/.chezmoidata/
+├── email.yaml
+├── packages.yaml
+└── secrets.yaml
+```
+
+## `.chezmoiignore`
+
+A template file that lists patterns of files to ignore. Each line of the file is a pattern. Blank lines and lines beginning with `#` are ignored.
+
+Patterns are matched using Go's [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) and support `**` for recursive directory matching.
+
+### Example
+
+```text title="~/.local/share/chezmoi/.chezmoiignore"
+# Ignore editor backup files
+*~
+*.swp
+
+# Ignore OS-specific files
+{{ if ne .chezmoi.os "darwin" }}
+.config/darwin/**
+{{ end }}
+
+{{ if ne .chezmoi.os "linux" }}
+.config/linux/**
+{{ end }}
+
+# Ignore work-related files on personal machines
+{{ if not .work }}
+.config/work/**
+{{ end }}
+```
+
+## `.chezmoiremove`
+
+A template file that lists patterns of files to remove from the destination directory. The syntax is the same as `.chezmoiignore`.
+
+### Example
+
+```text title="~/.local/share/chezmoi/.chezmoiremove"
+# Remove old config files
+.oldconfig
+.legacy/**
+
+# Remove work files on personal machine
+{{ if not .work }}
+.ssh/work_*
+{{ end }}
+```
+
+## `.chezmoiexternal.$FORMAT`
+
+Defines external files and archives to include as if they were in the source state. This is useful for including large files or entire directories from external sources.
+
+Supported formats: `.json`, `.jsonc`, `.toml`, `.yaml`
+
+### Example
+
+```toml title="~/.local/share/chezmoi/.chezmoiexternal.toml"
+[".oh-my-zsh"]
+    type = "archive"
+    url = "https://github.com/ohmyzsh/ohmyzsh/archive/master.tar.gz"
+    stripComponents = 1
+    refreshPeriod = "168h"
+
+[".local/share/nvim/site/autoload/plug.vim"]
+    type = "file"
+    url = "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim"
+    refreshPeriod = "168h"
+```
+
+### External Entry Types
+
+- **`file`**: Single file download
+- **`archive`**: Archive (tar, tar.gz, tar.bz2, zip) extraction
+- **`git-repo`**: Git repository clone
+
+## `.chezmoiexternals/`
+
+Directory containing multiple external definition files. Files are read in lexical order with any `.chezmoiexternal.$FORMAT` files.
+
+## `.chezmoiscripts/`
+
+Directory containing scripts that are read, templated, and executed according to their phase attributes (`run_after_`, `run_before_`, etc.) and lexical ordering.
+
+This allows you to organize scripts in subdirectories while maintaining control over execution order.
+
+### Example
+
+```text
+~/.local/share/chezmoi/.chezmoiscripts/
+├── run_once_install/
+│   ├── 01_packages.sh
+│   └── 02_tools.sh
+└── run_after_configure/
+    └── services.sh
+```
+
+## `.chezmoitemplates/`
+
+Directory containing template files that can be included in other templates using the [`includeTemplate` function](/reference/templates/functions#includetemplate).
+
+### Example
+
+```bash title="~/.local/share/chezmoi/.chezmoitemplates/header"
+# Managed by chezmoi
+# DO NOT EDIT MANUALLY
+```
+
+Use in templates:
+
+```bash title="dot_bashrc.tmpl"
+{{ template "header" }}
+
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## `.chezmoiversion`
+
+Specifies the minimum version of chezmoi required for the source state. This file is processed before any operation is applied.
+
+### Example
+
+```text title="~/.local/share/chezmoi/.chezmoiversion"
+2.40.0
+```
+
+If the running version of chezmoi is older than the specified version, chezmoi will exit with an error.
+
+## Processing Order Summary
+
+| Order | File/Directory | Purpose |
+|-------|----------------|----------|
+| 1 | `.chezmoiroot` | Set source state path |
+| 2 | `.chezmoi.$FORMAT.tmpl` | Initialize/update config |
+| 3 | `.chezmoidata.$FORMAT`, `.chezmoidata/` | Load template data |
+| 4 | `.chezmoitemplates/` | Make templates available |
+| 5 | `.chezmoiignore` | Determine ignored files |
+| 6 | `.chezmoiremove` | Determine files to remove |
+| 7 | `.chezmoiexternal.$FORMAT`, `.chezmoiexternals/` | Include external resources |
+| 8 | `.chezmoiversion` | Verify chezmoi version |
+
+## Related Pages
+
+- [Source State Attributes](/reference/source-state-attributes) - File naming conventions
+- [Templates](/reference/templates/overview) - Template syntax
+- [`chezmoi init`](/commands/init) - Initialize chezmoi

@@ -1,0 +1,257 @@
+---
+title: Use Scripts to Perform Actions
+description: Automate tasks with chezmoi's script system
+---
+
+## Understand how scripts work
+
+chezmoi supports scripts that execute when you run `chezmoi apply`. Scripts are files in the source directory with the `run_` prefix, executed in alphabetical order.
+
+### Script types
+
+<CardGroup cols={3}>
+  <Card title="run_" icon="repeat">
+    Execute every time you run `chezmoi apply`
+  </Card>
+  <Card title="run_onchange_" icon="arrows-rotate">
+    Execute only when script contents have changed
+  </Card>
+  <Card title="run_once_" icon="check">
+    Execute once per unique content version
+  </Card>
+</CardGroup>
+
+<Note>
+All scripts should be **idempotent** (safe to run multiple times). Scripts break chezmoi's declarative approach and should be used sparingly.
+</Note>
+
+### Script timing
+
+Scripts normally run while chezmoi updates your dotfiles:
+
+```
+a.txt → run_b.sh → c.txt
+```
+
+Use `before_` or `after_` attributes to control timing:
+
+<CodeGroup>
+```bash Before updates
+run_once_before_install-password-manager.sh
+```
+
+```bash After updates
+run_once_after_install-fonts.sh
+```
+</CodeGroup>
+
+### Script requirements
+
+<Steps>
+  <Step title="Create manually">
+    ```bash
+    chezmoi cd
+    touch run_install-packages.sh
+    chmod +x run_install-packages.sh
+    ```
+
+    No need to set executable bit - chezmoi handles it.
+  </Step>
+
+  <Step title="Include shebang or use binary">
+    ```bash
+    #!/bin/bash
+    echo "Installing packages..."
+    ```
+
+    Scripts must include a `#!` line or be an executable binary.
+  </Step>
+
+  <Step title="Template support">
+    ```bash run_install.sh.tmpl
+    {{ if eq .chezmoi.os "linux" -}}
+    #!/bin/sh
+    sudo apt install ripgrep
+    {{ else if eq .chezmoi.os "darwin" -}}
+    #!/bin/sh
+    brew install ripgrep
+    {{ end -}}
+    ```
+
+    Scripts with `.tmpl` suffix are templated. If template resolves to whitespace, script won't execute.
+  </Step>
+</Steps>
+
+<Tip>
+Scripts in `.chezmoiscripts/` directory are executed without creating a corresponding directory in the target state.
+</Tip>
+
+## Set environment variables
+
+Configure extra environment variables for scripts in your config:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[scriptEnv]
+    MY_VAR = "my_value"
+    API_KEY = "{{ onepassword "api-key" }}"
+```
+
+chezmoi automatically sets:
+- `CHEZMOI=1`
+- `CHEZMOI_OS` (e.g., `linux`, `darwin`)
+- `CHEZMOI_ARCH` (e.g., `amd64`, `arm64`)
+- Other template data as `CHEZMOI_*` variables
+
+## Don't show scripts in `chezmoi diff`/`chezmoi status`
+
+<Tabs>
+  <Tab title="Exclude from diff">
+    ```toml ~/.config/chezmoi/chezmoi.toml
+    [diff]
+        exclude = ["scripts"]
+    ```
+
+    Scripts won't appear in `chezmoi diff` output.
+  </Tab>
+
+  <Tab title="Exclude from status">
+    ```toml ~/.config/chezmoi/chezmoi.toml
+    [status]
+        exclude = ["scripts"]
+    ```
+
+    Scripts won't show `R` status in `chezmoi status`.
+  </Tab>
+</Tabs>
+
+## Install packages with scripts
+
+<Steps>
+  <Step title="Create installation script">
+    ```bash
+    chezmoi cd
+    touch run_onchange_install-packages.sh
+    ```
+  </Step>
+
+  <Step title="Add package installation commands">
+    <CodeGroup>
+    ```bash Simple version
+    #!/bin/sh
+    sudo apt install ripgrep
+    ```
+
+    ```bash Template version
+    {{ if eq .chezmoi.os "linux" -}}
+    #!/bin/sh
+    sudo apt install ripgrep
+    {{ else if eq .chezmoi.os "darwin" -}}
+    #!/bin/sh
+    brew install ripgrep
+    {{ end -}}
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Apply changes">
+    ```bash
+    chezmoi apply
+    ```
+
+    Script runs on first apply. With `run_onchange_`, it won't run again unless contents change.
+  </Step>
+</Steps>
+
+<Tip>
+Name your template `run_onchange_install-packages.sh.tmpl` to install platform-specific packages automatically.
+</Tip>
+
+## Run a script when another file changes
+
+Use content checksums to trigger scripts when other files change:
+
+<CodeGroup>
+```bash run_onchange_dconf-load.sh.tmpl
+#!/bin/bash
+
+# dconf.ini hash: {{ include "dconf.ini" | sha256sum }}
+dconf load / < {{ joinPath .chezmoi.sourceDir "dconf.ini" | quote }}
+```
+
+```ini dconf.ini
+[org/gnome/desktop/interface]
+clock-show-seconds=true
+enable-hot-corners=false
+```
+</CodeGroup>
+
+How it works:
+1. Template includes SHA256 hash of `dconf.ini` in a comment
+2. When `dconf.ini` changes, the hash changes
+3. Changed hash means changed script content
+4. chezmoi reruns the `run_onchange_` script
+
+<Note>
+Add `dconf.ini` to `.chezmoiignore` so chezmoi doesn't create it in your home directory.
+</Note>
+
+## Clear the state of all `run_onchange_` and `run_once_` scripts
+
+chezmoi tracks script execution in persistent state.
+
+<Tabs>
+  <Tab title="Clear run_onchange_ state">
+    ```bash
+    chezmoi state delete-bucket --bucket=entryState
+    ```
+
+    All `run_onchange_` scripts will run again on next `chezmoi apply`.
+  </Tab>
+
+  <Tab title="Clear run_once_ state">
+    ```bash
+    chezmoi state delete-bucket --bucket=scriptState
+    ```
+
+    All `run_once_` scripts will run again on next `chezmoi apply`.
+  </Tab>
+</Tabs>
+
+<Warning>
+Clearing state causes scripts to run again. Ensure your scripts are idempotent before doing this.
+</Warning>
+
+## Real-world examples
+
+<CodeGroup>
+```bash run_onchange_before_install-homebrew.sh.tmpl
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+
+if ! command -v brew &> /dev/null; then
+    echo "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+{{- end }}
+```
+
+```bash run_once_after_install-oh-my-zsh.sh
+#!/bin/sh
+
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
+```
+
+```bash run_onchange_update-packages.sh.tmpl
+#!/bin/bash
+
+# Package list hash: {{ include "packages.txt" | sha256sum }}
+
+{{ if eq .chezmoi.os "linux" -}}
+xargs sudo apt install -y < {{ joinPath .chezmoi.sourceDir "packages.txt" | quote }}
+{{ else if eq .chezmoi.os "darwin" -}}
+xargs brew install < {{ joinPath .chezmoi.sourceDir "packages.txt" | quote }}
+{{ end -}}
+```
+</CodeGroup>

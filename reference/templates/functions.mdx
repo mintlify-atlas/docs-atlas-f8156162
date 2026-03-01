@@ -1,0 +1,477 @@
+---
+title: Template Functions
+description: Complete reference of all template functions available in chezmoi
+---
+
+# Template Functions
+
+All standard [`text/template`](https://pkg.go.dev/text/template) and [text template functions from Sprig](http://masterminds.github.io/sprig/) are included. chezmoi provides many additional functions.
+
+## General Functions
+
+### `abortEmpty`
+
+Returns empty, causing the target file to be removed. Useful for conditionally creating files.
+
+```go
+{{ if .condition }}
+file content
+{{ else }}
+{{ abortEmpty }}
+{{ end }}
+```
+
+### `comment` *prefix* *string*
+
+Adds *prefix* to the beginning of each line in *string*.
+
+```go
+{{ "Line 1\nLine 2" | comment "# " }}
+# Line 1
+# Line 2
+```
+
+### `completion` *shell*
+
+Returns shell completion script for the specified shell (`bash`, `fish`, `powershell`, `zsh`).
+
+```bash
+{{ completion "bash" }}
+```
+
+### `decrypt` *ciphertext*
+
+Decrypts *ciphertext* using the configured encryption method.
+
+```go
+{{ decrypt "encrypted-data" }}
+```
+
+### `encrypt` *plaintext*
+
+Encrypts *plaintext* using the configured encryption method.
+
+```go
+{{ "secret" | encrypt }}
+```
+
+### `ensureLinePrefix` *prefix* [*addPrefix*] *string*
+
+Ensures each line in *string* has *prefix*. If *addPrefix* is specified, it's added to lines missing *prefix*.
+
+```go
+{{ "line1\n# line2" | ensureLinePrefix "# " }}
+# line1
+# line2
+```
+
+### `eqFold` *first* *second* [*more*...]
+
+Case-insensitive equality comparison.
+
+```go
+{{ if eqFold .chezmoi.os "LINUX" }}Linux detected{{ end }}
+```
+
+### `exec` *command* [*args*...]
+
+Executes *command* with *args* and returns true if successful, false otherwise.
+
+```go
+{{ if exec "which" "docker" }}
+Docker is installed
+{{ end }}
+```
+
+## File Functions
+
+### `include` *filename*
+
+Returns the literal contents of *filename*. Relative paths are interpreted relative to the source directory.
+
+```go
+{{ include "scripts/setup.sh" }}
+```
+
+### `includeTemplate` *filename* [*data*]
+
+Executes the template in *filename* with optional *data* and returns the result.
+
+```go
+{{ includeTemplate "config.tmpl" . }}
+{{ includeTemplate "header.tmpl" }}
+```
+
+### `stat` *name*
+
+Returns file information for *name* (name, size, mode, perm, modTime, isDir, type). Returns false if file doesn't exist.
+
+```go
+{{ if stat "/path/to/file" }}
+File exists
+{{ end }}
+
+{{ $info := stat "/path/to/file" }}
+{{ $info.size }}
+```
+
+### `lstat` *name*
+
+Like `stat`, but doesn't follow symbolic links.
+
+```go
+{{ $info := lstat "/path/to/symlink" }}
+{{ $info.type }}
+```
+
+### `glob` *pattern*
+
+Returns list of files matching *pattern* in the destination directory.
+
+```go
+{{ range glob "*.conf" }}
+Found: {{ . }}
+{{ end }}
+```
+
+## Execution Functions
+
+### `output` *command* [*args*...]
+
+Returns the output of executing *command* with *args*. Exits with error if command fails.
+
+```go
+current-context: {{ output "kubectl" "config" "current-context" | trim }}
+```
+
+### `outputList` *command* *argsList*
+
+Like `output`, but takes arguments as a list.
+
+```go
+{{ $args := list "config" "current-context" }}
+{{ outputList "kubectl" $args }}
+```
+
+### `lookPath` *file*
+
+Returns the full path to *file* if found in PATH, empty string otherwise.
+
+```go
+{{ if lookPath "docker" }}
+Docker path: {{ lookPath "docker" }}
+{{ end }}
+```
+
+### `findExecutable` *file* *pathList*
+
+Finds *file* in *pathList* and returns the full path.
+
+```go
+{{ findExecutable "python" (list "/usr/bin" "/usr/local/bin") }}
+```
+
+### `findOneExecutable` *fileList* *pathList*
+
+Finds the first executable from *fileList* in *pathList*.
+
+```go
+{{ findOneExecutable (list "python3" "python") (splitList ":" (env "PATH")) }}
+```
+
+### `isExecutable` *file*
+
+Returns true if *file* has executable permissions.
+
+```go
+{{ if isExecutable "/usr/bin/bash" }}Executable{{ end }}
+```
+
+## Path Functions
+
+### `joinPath` *elements*...
+
+Joins path elements using the OS-specific path separator.
+
+```go
+{{ joinPath .chezmoi.homeDir ".config" "app" }}
+```
+
+## Data Conversion Functions
+
+### `fromJson` *string*
+
+Parses *string* as JSON and returns the result.
+
+```go
+{{ $data := fromJson .jsonString }}
+{{ $data.key }}
+```
+
+### `fromJsonc` *string*
+
+Parses *string* as JSONC (JSON with comments).
+
+```go
+{{ $data := fromJsonc .jsoncString }}
+```
+
+### `fromToml` *string*
+
+Parses *string* as TOML.
+
+```go
+{{ $data := fromToml .tomlString }}
+```
+
+### `fromYaml` *string*
+
+Parses *string* as YAML.
+
+```go
+{{ $data := fromYaml .yamlString }}
+```
+
+### `fromIni` *string*
+
+Parses *string* as INI format.
+
+```go
+{{ $data := fromIni .iniString }}
+```
+
+### `toJson` *data*
+
+Converts *data* to JSON format.
+
+```go
+{{ dict "key" "value" | toJson }}
+```
+
+### `toPrettyJson` [*indent*] *data*
+
+Converts *data* to pretty-printed JSON.
+
+```go
+{{ dict "key" "value" | toPrettyJson }}
+{{ dict "key" "value" | toPrettyJson "    " }}
+```
+
+### `toToml` *data*
+
+Converts *data* to TOML format.
+
+```go
+{{ dict "key" "value" | toToml }}
+```
+
+### `toYaml` *data*
+
+Converts *data* to YAML format.
+
+```go
+{{ dict "key" "value" | toYaml }}
+```
+
+### `toIni` *data*
+
+Converts *data* to INI format.
+
+```go
+{{ dict "section" (dict "key" "value") | toIni }}
+```
+
+## String Functions
+
+### `hexDecode` *string*
+
+Decodes hexadecimal *string* to bytes.
+
+```go
+{{ hexDecode "48656c6c6f" }}
+```
+
+### `hexEncode` *string*
+
+Encodes *string* to hexadecimal.
+
+```go
+{{ "Hello" | hexEncode }}
+```
+
+### `quote` *values*...
+
+Double-quotes each value and joins with spaces.
+
+```go
+{{ quote "arg1" "arg2" }}
+# "arg1" "arg2"
+```
+
+### `squote` *values*...
+
+Single-quotes each value and joins with spaces.
+
+```go
+{{ squote "arg1" "arg2" }}
+# 'arg1' 'arg2'
+```
+
+### `quoteList` *list*
+
+Double-quotes each element in *list*.
+
+```go
+{{ list "a" "b" | quoteList }}
+```
+
+### `replaceAllRegex` *pattern* *replacement* *string*
+
+Replaces all matches of regex *pattern* with *replacement* in *string*.
+
+```go
+{{ replaceAllRegex "[0-9]+" "X" "abc123def456" }}
+# abcXdefX
+```
+
+### `splitList` *separator* *string*
+
+Splits *string* by *separator* and returns a list.
+
+```go
+{{ splitList "," "a,b,c" }}
+```
+
+### `toString` *value*
+
+Converts *value* to a string.
+
+```go
+{{ 123 | toString }}
+```
+
+### `toStrings` *values*...
+
+Converts multiple values to strings.
+
+```go
+{{ toStrings 1 2 3 }}
+```
+
+## Data Manipulation Functions
+
+### `deleteValueAtPath` *path* *dict*
+
+Deletes the value at *path* in *dict*.
+
+```go
+{{ $data := dict "a" (dict "b" "c") }}
+{{ deleteValueAtPath "a.b" $data }}
+```
+
+### `setValueAtPath` *path* *value* *dict*
+
+Sets *value* at *path* in *dict*.
+
+```go
+{{ $data := dict }}
+{{ setValueAtPath "a.b.c" "value" $data }}
+```
+
+### `pruneEmptyDicts` *dict*
+
+Removes all empty dictionaries from *dict*.
+
+```go
+{{ dict "empty" (dict) "full" (dict "key" "value") | pruneEmptyDicts }}
+```
+
+### `jq` *query* *input*
+
+Executes jq *query* on *input* and returns results.
+
+```go
+{{ $data := dict "items" (list 1 2 3) }}
+{{ jq ".items[] | . * 2" $data }}
+```
+
+## Special Functions
+
+### `mozillaInstallHash` *path*
+
+Returns Mozilla installation hash for *path*.
+
+```go
+{{ mozillaInstallHash "/usr/lib/firefox" }}
+```
+
+### `ioreg`
+
+Returns macOS IORegistry information (macOS only).
+
+```go
+{{ if eq .chezmoi.os "darwin" }}
+{{ $ioreg := ioreg }}
+{{ end }}
+```
+
+### `warnf` *format* *args*...
+
+Prints a warning message. Returns empty string.
+
+```go
+{{ if not (stat "/path/to/file") }}
+{{ warnf "File %s does not exist" "/path/to/file" }}
+{{ end }}
+```
+
+### `getRedirectedURL` *url*
+
+Follows redirects and returns the final URL.
+
+```go
+{{ getRedirectedURL "https://short.url" }}
+```
+
+## GitHub Functions
+
+These functions integrate with GitHub's API:
+
+- `gitHubKeys` *user* - Returns user's public SSH keys
+- `gitHubLatestRelease` *repo* - Returns latest release info
+- `gitHubLatestReleaseAssetURL` *repo* *pattern* - Returns asset download URL
+- `gitHubLatestTag` *repo* - Returns latest tag name
+- `gitHubRelease` *repo* *tag* - Returns release info for tag
+- `gitHubReleaseAssetURL` *repo* *tag* *pattern* - Returns asset URL for release
+- `gitHubReleases` *repo* - Returns all releases
+- `gitHubTags` *repo* - Returns all tags
+
+### Example
+
+```go
+{{ $release := gitHubLatestRelease "twpayne/chezmoi" }}
+Version: {{ $release.tag_name }}
+
+{{ range gitHubKeys "username" }}
+ssh-key: {{ . }}
+{{ end }}
+```
+
+## Password Manager Functions
+
+See [Password Manager Functions](/reference/templates/password-manager-functions) for:
+
+- 1Password (`onepassword`, `onepasswordDocument`, etc.)
+- Bitwarden (`bitwarden`, `bitwardenFields`, etc.)
+- LastPass (`lastpass`, `lastpassRaw`)
+- Pass (`pass`, `passFields`, `passRaw`)
+- Keeper (`keeper`, `keeperDataFields`)
+- KeePassXC (`keepassxc`, `keepassxcAttribute`)
+- And many more
+
+## Related Pages
+
+- [Template Variables](/reference/templates/variables) - Built-in template variables
+- [Template Directives](/reference/templates/directives) - File-specific template options
+- [Password Manager Functions](/reference/templates/password-manager-functions) - Secret management functions
+- [Sprig Functions](http://masterminds.github.io/sprig/) - Additional functions from Sprig

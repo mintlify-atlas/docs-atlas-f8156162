@@ -1,0 +1,340 @@
+---
+title: Templating
+description: Master chezmoi's template system for dynamic configuration
+---
+
+## Introduction
+
+Templates allow you to change file contents based on the environment. For example, use different email addresses or API keys on different machines.
+
+chezmoi uses Go's [`text/template`](https://pkg.go.dev/text/template) syntax extended with [Sprig functions](http://masterminds.github.io/sprig/).
+
+A file is interpreted as a template if:
+- The filename has a `.tmpl` suffix
+- The file is in `.chezmoitemplates` directory or its subdirectories
+
+## Template data
+
+<CodeGroup>
+```bash View all available data
+chezmoi data
+```
+
+```json Example output
+{
+  "chezmoi": {
+    "arch": "amd64",
+    "os": "linux",
+    "hostname": "myhost",
+    "username": "user"
+  },
+  "email": "user@example.com"
+}
+```
+</CodeGroup>
+
+Data sources (later sources override earlier ones):
+1. **Built-in variables** in `.chezmoi` (e.g., `.chezmoi.os`, `.chezmoi.hostname`)
+2. **`.chezmoidata.$FORMAT` files** (read in alphabetical order)
+3. **`data` section** in your config file
+
+chezmoi also provides functions to retrieve runtime data from password managers, environment variables, and the file system.
+
+## Creating a template file
+
+<Tabs>
+  <Tab title="Add with --template">
+    ```bash
+    chezmoi add --template ~/.zshrc
+    ```
+
+    Creates `~/.local/share/chezmoi/dot_zshrc.tmpl`.
+  </Tab>
+
+  <Tab title="Convert existing file">
+    ```bash
+    chezmoi chattr +template ~/.zshrc
+    ```
+
+    Converts an already-managed file to a template.
+  </Tab>
+
+  <Tab title="Create manually">
+    ```bash
+    chezmoi cd
+    $EDITOR dot_zshrc.tmpl
+    ```
+
+    Create the template file directly in the source directory.
+  </Tab>
+
+  <Tab title="Shared templates">
+    ```bash
+    chezmoi cd
+    mkdir -p .chezmoitemplates
+    cd .chezmoitemplates
+    $EDITOR mytemplate
+    ```
+
+    Templates in `.chezmoitemplates` must be created manually.
+  </Tab>
+</Tabs>
+
+## Editing a template file
+
+<CodeGroup>
+```bash Edit template
+chezmoi edit ~/.zshrc
+```
+
+```bash Edit and apply
+chezmoi edit --apply ~/.zshrc
+```
+</CodeGroup>
+
+The `edit` command opens the source file and checks template syntax when you quit the editor.
+
+## Testing templates
+
+<Tabs>
+  <Tab title="Simple expression">
+    ```bash
+    chezmoi execute-template '{{ .chezmoi.hostname }}'
+    ```
+
+    Output: `myhost`
+  </Tab>
+
+  <Tab title="Test file">
+    ```bash
+    chezmoi cd
+    chezmoi execute-template < dot_zshrc.tmpl
+    ```
+
+    Shows what the template will generate.
+  </Tab>
+
+  <Tab title="PowerShell">
+    ```powershell
+    cat foo.txt | chezmoi execute-template
+    ```
+
+    Use piping if file redirection doesn't work.
+  </Tab>
+</Tabs>
+
+## Template syntax
+
+Template actions are written inside `{{ }}`. Text outside is copied literally.
+
+<Tabs>
+  <Tab title="Variables">
+    ```text
+    {{ .chezmoi.hostname }}
+    {{ .email }}
+    ```
+  </Tab>
+
+  <Tab title="Conditionals">
+    ```text
+    {{ if eq .chezmoi.os "darwin" }}
+    # darwin
+    {{ else if eq .chezmoi.os "linux" }}
+    # linux
+    {{ else }}
+    # other operating system
+    {{ end }}
+    ```
+  </Tab>
+
+  <Tab title="Removing whitespace">
+    ```text
+    HOSTNAME={{- .chezmoi.hostname }}
+    ```
+
+    Output: `HOSTNAME=myhostname`
+
+    The `-` removes all surrounding whitespace (tabs, spaces, newlines).
+  </Tab>
+</Tabs>
+
+## Simple logic
+
+<CodeGroup>
+```bash Conditional sections
+# common config
+export EDITOR=vi
+
+# machine-specific configuration
+{{- if eq .chezmoi.hostname "work-laptop" }}
+# this will only be included in ~/.bashrc on work-laptop
+export WORK_VAR=value
+{{- end }}
+```
+
+```bash Multiple conditions
+{{ if eq "foo" "foo" "bar" }}hello{{end}}
+{{ if eq "foo" "bar" "foo" }}hello{{end}}
+{{ if eq "foo" "bar" "bar" }}hello{{end}}
+```
+</CodeGroup>
+
+### Boolean functions
+
+| Function | Description |
+|----------|-------------|
+| `eq` | Returns true if first argument equals any other argument |
+| `not` | Returns boolean negation |
+| `and` | Returns boolean AND (returns first empty arg or last arg) |
+| `or` | Returns boolean OR (returns first non-empty arg or last arg) |
+
+### Integer comparison functions
+
+| Function | Description |
+|----------|-------------|
+| `len` | Returns integer length |
+| `eq` | arg1 == arg2 |
+| `ne` | arg1 != arg2 |
+| `lt` | arg1 &lt; arg2 |
+| `le` | arg1 &lt;= arg2 |
+| `gt` | arg1 &gt; arg2 |
+| `ge` | arg1 &gt;= arg2 |
+
+## More complicated logic
+
+<Tabs>
+  <Tab title="Multiple eq arguments">
+    ```text
+    {{ if eq "foo" "foo" "bar" }}hello{{end}}
+    ```
+
+    Checks if first arg equals any of the other args.
+  </Tab>
+
+  <Tab title="Chaining operators">
+    ```text
+    {{ if (and (eq .chezmoi.os "linux") (ne .email "me@home.org")) }}
+    # Linux and not home email
+    {{ end }}
+    ```
+
+    Parentheses are required to chain operators.
+  </Tab>
+</Tabs>
+
+## Helper functions
+
+chezmoi includes:
+- All [Sprig functions](http://masterminds.github.io/sprig/)
+- Custom chezmoi functions (see [reference](/reference/templates/functions))
+
+<CodeGroup>
+```bash Access template variables
+chezmoi data
+```
+
+```text Use in templates
+{{ .chezmoi.kernel.osrelease }}
+```
+</CodeGroup>
+
+## Using `.chezmoitemplates`
+
+Files in `.chezmoitemplates` can be included in other templates using the `template` action:
+
+<Steps>
+  <Step title="Create shared template">
+    ```text .chezmoitemplates/part.tmpl
+    {{ if eq .chezmoi.os "linux" }}
+    # linux config
+    {{ else }}
+    # non-linux config
+    {{ end }}
+    ```
+  </Step>
+
+  <Step title="Use in another template">
+    ```text dot_file.tmpl
+    {{ template "part.tmpl" . }}
+    ```
+
+    <Warning>
+    Pass `.` to make template variables available. Without it, the template receives `nil` data.
+    </Warning>
+  </Step>
+</Steps>
+
+## Creating similar files with shared templates
+
+<Steps>
+  <Step title="Create shared template">
+    ```text .chezmoitemplates/alacritty
+    some: config
+    fontsize: {{ . }}
+    more: config
+    ```
+
+    Files in `.chezmoitemplates` don't need `.tmpl` extension.
+  </Step>
+
+  <Step title="Create files using the template">
+    <CodeGroup>
+    ```text small-font.yml.tmpl
+    {{- template "alacritty" 12 -}}
+    ```
+
+    ```text big-font.yml.tmpl
+    {{- template "alacritty" 18 -}}
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Test the output">
+    ```bash
+    chezmoi cat ~/small-font.yml
+    ```
+
+    Output:
+    ```yaml
+    some: config
+    fontsize: 12
+    more: config
+    ```
+  </Step>
+</Steps>
+
+### Passing multiple arguments
+
+<Tabs>
+  <Tab title="Via config file">
+    ```toml ~/.config/chezmoi/chezmoi.toml
+    [data.alacritty.big]
+        fontsize = 18
+        font = "DejaVu Serif"
+    [data.alacritty.small]
+        fontsize = 12
+        font = "DejaVu Sans Mono"
+    ```
+
+    Template:
+    ```text .chezmoitemplates/alacritty
+    some: config
+    fontsize: {{ .fontsize }}
+    font: {{ .font }}
+    more: config
+    ```
+
+    Usage:
+    ```text small-font.yml.tmpl
+    {{- template "alacritty" .alacritty.small -}}
+    ```
+  </Tab>
+
+  <Tab title="Via dictionary">
+    ```text small-font.yml.tmpl
+    {{- template "alacritty" dict "fontsize" 12 "font" "DejaVu Sans Mono" -}}
+    ```
+
+    Use this approach to pass arguments inline without config file duplication.
+  </Tab>
+</Tabs>

@@ -1,0 +1,317 @@
+---
+title: GPG Encryption
+description: Encrypt your dotfiles with GPG/PGP encryption
+---
+
+chezmoi supports encrypting files with [GPG](https://www.gnupg.org/), also known as GnuPG. Encrypted files are stored in the source state and automatically decrypted when generating the target state or editing with `chezmoi edit`.
+
+## Quick Start
+
+Configure GPG encryption in your chezmoi config:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "gpg"
+
+[gpg]
+    recipient = "your-email@example.com"
+```
+
+<Warning>
+  Make sure `encryption = "gpg"` is at the top level of your config, before any other sections.
+</Warning>
+
+## Asymmetric (Private/Public Key) Encryption
+
+Asymmetric encryption uses your GPG key pair. Specify the encryption key recipient in your configuration:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "gpg"
+
+[gpg]
+    recipient = "your-email@example.com"
+```
+
+Or use the key ID directly:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "gpg"
+
+[gpg]
+    recipient = "0x1234567890ABCDEF"
+```
+
+### How It Works
+
+chezmoi will encrypt files using:
+
+```bash
+gpg --armor --recipient $RECIPIENT --encrypt
+```
+
+The encrypted file is stored in the source state and automatically decrypted when generating the target state.
+
+## Symmetric Encryption
+
+For symmetric encryption (password-based), configure:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "gpg"
+
+[gpg]
+    symmetric = true
+```
+
+chezmoi will encrypt files using:
+
+```bash
+gpg --armor --symmetric
+```
+
+## Encrypting with a Passphrase
+
+If you want to encrypt files with a passphrase that's stored in plaintext on your machines:
+
+```toml ~/.local/share/chezmoi/.chezmoi.toml.tmpl
+{{ $passphrase := promptStringOnce . "passphrase" "passphrase" -}}
+
+encryption = "gpg"
+
+[data]
+    passphrase = {{ $passphrase | quote }}
+
+[gpg]
+    symmetric = true
+    args = [
+        "--batch",
+        "--passphrase", {{ $passphrase | quote }},
+        "--no-symkey-cache"
+    ]
+```
+
+This will:
+1. Prompt for the passphrase on first run of `chezmoi init`
+2. Remember the passphrase in your configuration file
+3. Use it automatically for encryption/decryption
+
+<Warning>
+  The passphrase will be stored in plaintext in your config file. Only use this if you're comfortable with that trade-off.
+</Warning>
+
+## Usage Examples
+
+### Encrypting Files
+
+Add an encrypted SSH key:
+
+```bash
+chezmoi add --encrypt ~/.ssh/id_rsa
+```
+
+### Editing Encrypted Files
+
+Edit an encrypted file (automatically decrypts and re-encrypts):
+
+```bash
+chezmoi edit ~/.ssh/id_rsa
+```
+
+### Different Recipients Per Machine
+
+<CodeGroup>
+```toml Personal Machine
+encryption = "gpg"
+
+[gpg]
+    recipient = "personal@example.com"
+```
+
+```toml Work Machine
+encryption = "gpg"
+
+[gpg]
+    recipient = "work@company.com"
+```
+</CodeGroup>
+
+### Encrypting Specific File Types
+
+<CodeGroup>
+```bash SSH Keys
+chezmoi add --encrypt ~/.ssh/id_rsa
+chezmoi add --encrypt ~/.ssh/id_ed25519
+```
+
+```bash API Tokens
+chezmoi add --encrypt ~/.config/github/token
+chezmoi add --encrypt ~/.npmrc
+```
+
+```bash AWS Credentials
+chezmoi add --encrypt ~/.aws/credentials
+chezmoi add --encrypt ~/.aws/config
+```
+</CodeGroup>
+
+## Muting GPG Output
+
+GPG sends some info messages to stderr instead of stdout. To mute this output, add `--quiet` to `gpg.args`:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[gpg]
+    recipient = "your-email@example.com"
+    args = ["--quiet"]
+```
+
+## Custom GPG Arguments
+
+You can pass additional arguments to GPG:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[gpg]
+    recipient = "your-email@example.com"
+    args = [
+        "--quiet",
+        "--trust-model", "always",
+        "--armor"
+    ]
+```
+
+## Using a Specific GPG Key
+
+If you have multiple GPG keys, specify which one to use:
+
+```bash
+gpg --list-secret-keys --keyid-format LONG
+```
+
+Then use the key ID in your config:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "gpg"
+
+[gpg]
+    recipient = "0x1234567890ABCDEF"
+```
+
+## Multiple Recipients
+
+To encrypt files for multiple recipients:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+encryption = "gpg"
+
+[gpg]
+    recipient = "key1@example.com"
+    args = [
+        "--recipient", "key2@example.com",
+        "--recipient", "key3@example.com"
+    ]
+```
+
+## Setting Up GPG Keys
+
+If you don't have a GPG key yet:
+
+### Generate a New Key
+
+```bash
+gpg --full-generate-key
+```
+
+Follow the prompts to create your key.
+
+### List Your Keys
+
+```bash
+gpg --list-secret-keys --keyid-format LONG
+```
+
+### Export Your Public Key
+
+```bash
+gpg --armor --export your-email@example.com > public-key.asc
+```
+
+### Import a Key on Another Machine
+
+```bash
+gpg --import public-key.asc
+gpg --import private-key.asc
+```
+
+## Troubleshooting
+
+### "no public key" Error
+
+Ensure the recipient key is in your GPG keyring:
+
+```bash
+gpg --list-keys your-email@example.com
+```
+
+If not found, import it:
+
+```bash
+gpg --import public-key.asc
+```
+
+### "decryption failed" Error
+
+Verify you have the private key:
+
+```bash
+gpg --list-secret-keys
+```
+
+### Trust Issues
+
+If GPG complains about untrusted keys:
+
+```bash
+gpg --edit-key your-email@example.com
+# In the GPG prompt:
+gpg> trust
+gpg> 5  # Ultimate trust
+gpg> quit
+```
+
+Or use `--trust-model always` in your config:
+
+```toml
+[gpg]
+    args = ["--trust-model", "always"]
+```
+
+### Permission Denied
+
+Check GPG directory permissions:
+
+```bash
+chmod 700 ~/.gnupg
+chmod 600 ~/.gnupg/*
+```
+
+## Best Practices
+
+1. **Backup your keys**: Export and securely store your GPG keys
+2. **Use subkeys**: Create separate subkeys for encryption
+3. **Set expiration**: Use key expiration dates for better security
+4. **Test decryption**: Verify you can decrypt before removing originals
+5. **Consider age**: For new setups, [age](/encryption/age) is simpler and more modern
+
+## GPG vs age
+
+| Feature | GPG | age |
+|---------|-----|-----|
+| Maturity | Very mature, widely used | Modern, actively developed |
+| Key Management | Complex, multiple key types | Simple, single key type |
+| Setup | Requires GPG installation | Built-in to chezmoi |
+| Speed | Slower | Faster |
+| Best For | Existing GPG users | New users, simple setups |
+
+## See Also
+
+- [GPG website](https://www.gnupg.org/)
+- [GPG documentation](https://www.gnupg.org/documentation/)
+- [Encryption Overview](/encryption/overview)
+- [age Encryption](/encryption/age)

@@ -1,0 +1,302 @@
+---
+title: Migrating from Another Dotfile Manager
+description: Guide to migrating your dotfiles from other tools to chezmoi
+---
+
+If you're currently using another dotfile manager, chezmoi makes it easy to migrate your existing setup. This guide covers common migration scenarios and compares chezmoi with other popular tools.
+
+## Migrate from Symlink-Based Managers
+
+Many dotfile managers (like GNU Stow, rcm, and bare git setups) use symbolic links to connect your dotfiles to a centralized directory. chezmoi takes a different approach by copying files directly to their target locations, which enables advanced features like templates, encryption, and per-machine customization.
+
+### Using the `--follow` Flag
+
+When migrating from a symlink-based system, use the `--follow` option with `chezmoi add`. This tells chezmoi to add the file that the symlink points to, rather than the symlink itself.
+
+```bash
+# Add a single dotfile
+chezmoi add --follow ~/.bashrc
+
+# Add multiple dotfiles
+chezmoi add --follow ~/.bashrc ~/.zshrc ~/.vimrc
+
+# Add an entire directory
+chezmoi add --follow ~/.config/nvim
+```
+
+### Migration Process
+
+When you run `chezmoi apply`, chezmoi will replace the symlinks with actual files containing the correct content. Here's a typical migration workflow:
+
+1. **Initialize chezmoi** (if not already done):
+   ```bash
+   chezmoi init
+   ```
+
+2. **Add your dotfiles with `--follow`**:
+   ```bash
+   chezmoi add --follow ~/.bashrc ~/.zshrc ~/.vimrc
+   ```
+
+3. **Review the changes**:
+   ```bash
+   chezmoi diff
+   ```
+
+4. **Apply the changes** (this replaces symlinks with files):
+   ```bash
+   chezmoi apply
+   ```
+
+5. **Clean up your old dotfile manager** (optional):
+   - Remove the old centralized dotfiles directory
+   - Uninstall the old dotfile manager
+   - Update any scripts that referenced the old setup
+
+## Comparing Dotfile Managers
+
+### chezmoi vs. GNU Stow
+
+**GNU Stow** uses symlinks to create a layer of indirection between your dotfiles' locations and their contents.
+
+**Key differences:**
+- **chezmoi**: Files are regular files in their final location
+- **GNU Stow**: Files are symlinks pointing to a central directory
+
+**Advantages of chezmoi:**
+- Support for templates (machine-specific configurations)
+- Built-in encryption for sensitive files
+- Executable and private file permissions
+- Works better on Windows (no symlink permission issues)
+- No "special" files that reveal your dotfile management setup
+
+### chezmoi vs. yadm
+
+**yadm** (Yet Another Dotfiles Manager) uses a bare git repository in your home directory.
+
+**Key differences:**
+- **chezmoi**: Uses a separate source directory (`~/.local/share/chezmoi`)
+- **yadm**: Stores dotfiles directly in your home directory
+
+**Advantages of chezmoi:**
+- Password manager integration (1Password, Bitwarden, etc.)
+- More powerful templating with custom variables
+- Easier to manage files outside your home directory
+- Better handling of machine-to-machine differences
+
+### chezmoi vs. dotbot
+
+**dotbot** is a Python-based tool that uses a configuration file to set up symlinks.
+
+**Key differences:**
+- **chezmoi**: Single binary, no dependencies
+- **dotbot**: Requires Python and git
+
+**Advantages of chezmoi:**
+- No runtime dependencies
+- Cross-platform (Linux, macOS, Windows, BSD)
+- Built-in diff viewing before applying changes
+- Encryption support
+- More flexible templating
+
+### Feature Comparison Table
+
+| Feature | chezmoi | GNU Stow | yadm | dotbot | bare git |
+|---------|---------|----------|------|--------|----------|
+| **Distribution** | Single binary | Package | Single script | Python package | Manual |
+| **Bootstrap requirements** | None | Perl | git | Python, git | git |
+| **Windows support** | ✅ | ❌ | ✅ | ✅ | ✅ |
+| **Files are...** | Regular files | Symlinks | Regular files | Symlinks | Regular files |
+| **Templates** | ✅ | ❌ | ✅ (limited) | ❌ | ❌ |
+| **Encryption** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| **Password managers** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Diff before apply** | ✅ | ❌ | ✅ | ❌ | ✅ |
+| **Run scripts** | ✅ | ❌ | ✅ | ✅ | ❌ |
+| **Private files** | ✅ | ❌ | ✅ | ❌ | ❌ |
+
+## Migration Examples
+
+### From GNU Stow
+
+If you have a typical GNU Stow setup with structure like:
+
+```
+~/dotfiles/
+  bash/.bashrc
+  vim/.vimrc
+  git/.gitconfig
+```
+
+Migrate to chezmoi:
+
+```bash
+# Initialize chezmoi
+chezmoi init
+
+# Add dotfiles (they're currently symlinks)
+chezmoi add --follow ~/.bashrc ~/.vimrc ~/.gitconfig
+
+# Review changes
+chezmoi diff
+
+# Apply (replaces symlinks with regular files)
+chezmoi apply
+
+# Commit to version control
+chezmoi cd
+git add .
+git commit -m "Migrate from GNU Stow to chezmoi"
+```
+
+### From yadm
+
+If you're using yadm, your dotfiles are already in your home directory:
+
+```bash
+# List yadm-managed files
+yadm list
+
+# Initialize chezmoi
+chezmoi init
+
+# Add each file to chezmoi
+yadm list | xargs -I {} chezmoi add ~/{}
+
+# Or add common dotfiles
+chezmoi add ~/.bashrc ~/.zshrc ~/.gitconfig ~/.config
+
+# Review and apply
+chezmoi diff
+chezmoi apply
+
+# Archive yadm repo (optional)
+yadm clone --backup
+```
+
+### From bare git
+
+If you're using the bare git approach:
+
+```bash
+# Your alias might be something like:
+# alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
+
+# List tracked files
+config ls-tree --full-tree -r --name-only HEAD
+
+# Initialize chezmoi
+chezmoi init
+
+# Add each tracked file
+config ls-tree --full-tree -r --name-only HEAD | xargs -I {} chezmoi add ~/{}
+
+# Review and apply
+chezmoi diff
+chezmoi apply
+```
+
+## Post-Migration Tips
+
+### Take Advantage of Templates
+
+Now that you're using chezmoi, you can add machine-specific logic:
+
+```bash
+# Make .gitconfig a template
+chezmoi add --template ~/.gitconfig
+
+# Edit it to add conditionals
+chezmoi edit ~/.gitconfig
+```
+
+Example template:
+
+```gitconfig
+[user]
+    name = Your Name
+{{- if eq .chezmoi.hostname "work-laptop" }}
+    email = you@work.com
+{{- else }}
+    email = you@personal.com
+{{- end }}
+```
+
+### Add Encryption for Secrets
+
+Protect sensitive files with age or gpg encryption:
+
+```bash
+# Initialize encryption
+chezmoi age init
+
+# Add encrypted file
+chezmoi add --encrypt ~/.ssh/config
+```
+
+### Set Up Automatic Updates
+
+Configure git auto-commit and auto-push:
+
+```toml
+# ~/.config/chezmoi/chezmoi.toml
+[git]
+    autoCommit = true
+    autoPush = true
+```
+
+### Create Run Scripts
+
+Automate setup tasks with scripts:
+
+```bash
+# Create a script to install packages
+chezmoi cd
+cat > run_once_install_packages.sh <<EOF
+#!/bin/bash
+sudo apt update
+sudo apt install -y vim git curl
+EOF
+chmod +x run_once_install_packages.sh
+```
+
+## Troubleshooting Migration
+
+### Symlinks Still Exist After Apply
+
+If symlinks persist after running `chezmoi apply`, ensure you used `--follow` when adding:
+
+```bash
+chezmoi forget ~/.bashrc
+chezmoi add --follow ~/.bashrc
+chezmoi apply
+```
+
+### File Permissions Changed
+
+Check your umask configuration:
+
+```toml
+# ~/.config/chezmoi/chezmoi.toml
+umask = 0o022
+```
+
+### Lost Custom Scripts
+
+If your old dotfile manager ran custom scripts, convert them to chezmoi scripts:
+
+```bash
+# Old: install.sh in your dotfiles
+# New: run_once_install.sh in chezmoi source directory
+chezmoi cd
+mv ~/old-dotfiles/install.sh run_once_install.sh
+```
+
+## Next Steps
+
+After migrating, explore chezmoi's advanced features:
+
+- [Machine-specific configurations](/advanced/machines)
+- [Configuring tools](/advanced/tools)
+- [Customizing chezmoi](/advanced/customize-chezmoi)
+- [Using templates](/user-guide/templating)
+- [Encryption setup](/encryption/overview)

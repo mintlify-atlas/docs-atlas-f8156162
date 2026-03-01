@@ -1,0 +1,218 @@
+---
+title: 'Why use chezmoi?'
+description: 'Understand the benefits of using chezmoi over other dotfile management approaches and why thousands of developers trust it.'
+keywords: ['dotfile manager', 'benefits', 'comparison', 'migration', 'best practices']
+icon: 'lightbulb'
+---
+
+## Why should I use a dotfile manager?
+
+Dotfile managers give you the combined benefit of a consistent environment everywhere with an undo command and a restore from backup.
+
+<Info>
+As the core of our development environments become increasingly standardized (e.g. using git at both home and work), and we further customize them, at the same time we increasingly work in ephemeral environments like Docker containers, virtual machines, and GitHub Codespaces.
+</Info>
+
+In the same way that nobody would use an editor without an undo command, or develop software without a version control system, chezmoi brings the investment that you have made in mastering your tools to every environment that you work in.
+
+## I already have a dotfile system, why should I use chezmoi?
+
+### What users say
+
+<AccordionGroup>
+  <Accordion title="Fast machine setup with secrets management" icon="rocket">
+    > I've been using Chezmoi for more than a year now, across at least 3 computers simultaneously, and I really love it. Most of all, I love how fast I can configure a new machine when I use it. In just a couple minutes of work, I can kick off a process on a brand-new computer that will set up my dotfiles and install all my usual software so it feels like a computer I've been using for years. I also appreciate features like secrets management, which allow me to share my dotfiles while keeping my secrets safe. Overall, I love the way Chezmoi fits so perfectly into the niche of managing dotfiles.
+    >
+    > — @mike_kasberg
+  </Accordion>
+  
+  <Accordion title="More complex than it first appears" icon="puzzle">
+    > I had initially been turned off when I first encountered [chezmoi], because [chezmoi] seemed overkill for (what appeared to me) a simple task.
+    >
+    > But the problem of managing a relatively small number of dotfiles across a relatively small number of machines with small differences between them and keeping them up to date proved to be _MUCH_ more complex than I imagined. Copy things around by hand, and then later distributing them via source control got hairy very quickly.
+    >
+    > I finally realized all those features were absolutely necessary to manage things sanely, and once I took some time to learn how to do things with chezmoi, I have never looked back.
+    >
+    > — njt
+  </Accordion>
+  
+  <Accordion title="Best dotfile manager" icon="star">
+    > Regular reminder that chezmoi is the best dotfile manager utility I've used and you can too
+    >
+    > — @mbbroberg
+  </Accordion>
+</AccordionGroup>
+
+## Common problems chezmoi solves
+
+If you're using any of the following methods, you've probably encountered these issues:
+
+- A custom shell script
+- An existing dotfile manager like dotbot, rcm, homesick, vcsh, yadm, or GNU Stow
+- A bare git repo approach
+
+### Managing differences between machines requires extra effort
+
+<Columns cols={2}>
+  <Card title="Without chezmoi" icon="xmark" iconType="solid">
+    - Manually perform extra steps for each machine
+    - Run different commands on different machines
+    - Maintain separate per-machine files or branches
+    - Deal with merge conflicts and rebasing
+    - Hope custom logic handles differences correctly
+  </Card>
+  
+  <Card title="With chezmoi" icon="check" iconType="solid">
+    - Single source of truth (one branch)
+    - Single command works on every machine
+    - Templates handle machine-to-machine differences
+    - Predefined variables for OS, architecture, hostname
+  </Card>
+</Columns>
+
+<Tip>
+chezmoi uses a single source of truth and a single command that works on every machine. Individual files can be templates to handle differences automatically.
+</Tip>
+
+### Keeping your dotfiles repo private
+
+<Warning>
+If your system stores secrets in plain text, then you must be very careful about where you clone your dotfiles. If you clone them on your work machine, anyone with access to your work machine (e.g. your IT department) will have access to your home secrets. If you clone it on your home machine, you risk leaking work secrets.
+</Warning>
+
+> And regarding dotfiles, I saw that. It's only public dotfiles repos so I have to evaluate my dotfiles history to be sure. I have secrets scanning and more, but it was easier to keep it private for security, I'm ok mostly though. I'm using chezmoi and it's easier now
+>
+> — @sheldon_hull
+
+<Check>
+With chezmoi you can store secrets in your password manager or encrypt them, and even store passwords in different ways on different machines. You can clone your dotfiles repository anywhere, and even make your dotfiles repo public, without leaving personal secrets on your work machine or work secrets on your personal machine.
+</Check>
+
+### Maintaining your own tool
+
+<Columns cols={2}>
+  <Card title="Custom shell script" icon="code">
+    > I've offloaded my dotfiles deployment from a homespun shell script to chezmoi. I'm quite happy with this decision.
+    >
+    > — @gotgenes
+  </Card>
+  
+  <Card title="Migration experience" icon="arrows-rotate">
+    > I discovered chezmoi and it's pretty cool, just migrated my old custom multi-machine sync dotfile setup and it's so much simpler now
+    >
+    > in case you're wondering I have written 0 code
+    >
+    > — @buritica
+  </Card>
+</Columns>
+
+> Chezmoi is like what you might get if you re-wrote my bash script in Go, came up with better solutions than `diff` for managing config on multiple machines, added in secrets management and other useful dotfile tools, and tweaked and perfected it over years.
+>
+> — @mike_kasberg
+
+<Info>
+If your system was written by you for your personal use, then it probably has the functionality that you needed when you wrote it. If you need more functionality then you have to implement it yourself.
+</Info>
+
+chezmoi includes a huge range of battle-tested functionality out-of-the-box:
+
+- Dry-run and diff modes
+- Script execution
+- Conflict resolution
+- Windows support
+- Template functions
+- Password manager integration
+- File encryption
+- And much, much more
+
+<Tip>
+chezmoi is used by thousands of people and has a rich suite of both unit and integration tests. When you hit the limits of your existing dotfile management system, chezmoi already has a tried-and-tested solution ready for you to use.
+</Tip>
+
+### Setting up dotfiles requires more than one command
+
+<Warning>
+If your system is written in a scripting language like Python, Perl, or Ruby, then you also need to install a compatible version of that language's runtime before you can use your system.
+</Warning>
+
+#### chezmoi's advantage
+
+chezmoi is distributed as a **single stand-alone statically-linked binary** with no dependencies that you can simply copy onto your machine and run.
+
+<Steps>
+  <Step title="No runtime required">
+    You don't need Python, Ruby, Perl, or even git installed.
+  </Step>
+  
+  <Step title="One-line install">
+    chezmoi provides one-line installs for all major platforms.
+  </Step>
+  
+  <Step title="Multiple distribution methods">
+    Pre-built binaries, packages for Linux and BSD distributions, Homebrew formulae, Scoop and Chocolatey support on Windows.
+  </Step>
+  
+  <Step title="Initial config generation">
+    Automated mechanism to make installing your dotfiles on a new machine as painless as possible.
+  </Step>
+</Steps>
+
+#### Installation examples
+
+<CodeGroup>
+
+```bash Linux/macOS (script)
+sh -c "$(curl -fsLS get.chezmoi.io)"
+```
+
+```bash Homebrew
+brew install chezmoi
+```
+
+```powershell Windows (Scoop)
+scoop install chezmoi
+```
+
+```bash Arch Linux
+pacman -S chezmoi
+```
+
+</CodeGroup>
+
+## Key differentiators
+
+<Columns cols={3}>
+  <Card title="Zero dependencies" icon="feather">
+    Single binary, no runtime required. Works anywhere.
+  </Card>
+  
+  <Card title="Battle-tested" icon="shield">
+    Used by thousands of developers with comprehensive test coverage.
+  </Card>
+  
+  <Card title="Secure by design" icon="lock">
+    Built-in support for secrets management and encryption.
+  </Card>
+  
+  <Card title="Template power" icon="wand-magic-sparkles">
+    Go templates with extensive functions for dynamic configs.
+  </Card>
+  
+  <Card title="Git-like workflow" icon="code-branch">
+    Familiar commands and patterns for version control.
+  </Card>
+  
+  <Card title="Active development" icon="rocket">
+    Regular updates, active community, and responsive maintainer.
+  </Card>
+</Columns>
+
+## Ready to make the switch?
+
+<Check>
+Migrating from another dotfile manager? Check out the [migration guide](/advanced/migrating-from-another-dotfile-manager) for step-by-step instructions on moving from popular alternatives like yadm, rcm, GNU Stow, and bare git repos.
+</Check>
+
+<Tip>
+New to dotfile management? Start with the [Quick Start](/quick-start) guide to set up chezmoi in minutes.
+</Tip>

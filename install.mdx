@@ -1,0 +1,345 @@
+---
+title: 'Install chezmoi'
+description: 'Install chezmoi on Linux, macOS, Windows, FreeBSD, and more with your preferred package manager or direct download'
+---
+
+# Install chezmoi
+
+chezmoi is distributed as a single stand-alone statically-linked binary with no dependencies. You can install it using your package manager, download a pre-built binary, or build from source.
+
+## One-Line Package Install
+
+Install chezmoi with your package manager with a single command:
+
+<Tabs>
+  <Tab title="Linux">
+    <CodeGroup>
+      ```bash Alpine
+      apk add chezmoi
+      ```
+
+      ```bash Arch
+      pacman -S chezmoi
+      ```
+
+      ```bash Fedora
+      dnf install chezmoi
+      ```
+
+      ```bash NixOS
+      nix-env -i chezmoi
+      ```
+
+      ```bash openSUSE
+      zypper install chezmoi
+      ```
+
+      ```bash RHEL/CentOS (EPEL)
+      dnf install epel-release && dnf install chezmoi
+      ```
+
+      ```bash Termux
+      pkg install chezmoi
+      ```
+
+      ```bash Void Linux
+      xbps-install -S chezmoi
+      ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab title="macOS">
+    <CodeGroup>
+      ```bash Homebrew
+      brew install chezmoi
+      ```
+
+      ```bash MacPorts
+      port install chezmoi
+      ```
+
+      ```bash Nix
+      nix-env -i chezmoi
+      ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab title="Windows">
+    <CodeGroup>
+      ```powershell Chocolatey
+      choco install chezmoi
+      ```
+
+      ```powershell Scoop
+      scoop install chezmoi
+      ```
+
+      ```powershell Winget
+      winget install twpayne.chezmoi
+      ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab title="FreeBSD">
+    ```bash
+    pkg install chezmoi
+    ```
+  </Tab>
+
+  <Tab title="OpenIndiana">
+    ```bash
+    pkg install application/chezmoi
+    ```
+  </Tab>
+</Tabs>
+
+### Cross-Platform Package Managers
+
+chezmoi is also available in several cross-platform package managers:
+
+<CodeGroup>
+  ```bash asdf
+  asdf plugin add chezmoi && asdf install chezmoi latest
+  ```
+
+  ```bash mise
+  mise use --global chezmoi@latest
+  ```
+
+  ```bash Homebrew
+  brew install chezmoi
+  ```
+
+  ```bash snap
+  snap install chezmoi --classic
+  ```
+</CodeGroup>
+
+<Tip>
+For more packages, see [chezmoi on repology.org](https://repology.org/project/chezmoi/versions).
+</Tip>
+
+## One-Line Binary Install
+
+Install the correct binary for your operating system and architecture in `./bin` with a single command:
+
+<CodeGroup>
+  ```bash curl
+  sh -c "$(curl -fsLS get.chezmoi.io)"
+  ```
+
+  ```bash wget
+  sh -c "$(wget -qO- get.chezmoi.io)"
+  ```
+
+  ```powershell PowerShell
+  iex "&{$(irm 'https://get.chezmoi.io/ps1')}"
+  ```
+</CodeGroup>
+
+<Tip>
+If you already have a dotfiles repo on GitHub at `https://github.com/$GITHUB_USERNAME/dotfiles`, you can install chezmoi and your dotfiles with a single command:
+
+```bash
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply $GITHUB_USERNAME
+```
+
+For private repos, use SSH authentication:
+
+```bash
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply git@github.com:$GITHUB_USERNAME/dotfiles.git
+```
+</Tip>
+
+### Customize Installation Directory
+
+By default, the install script places the binary in `./bin`. You can customize this:
+
+<CodeGroup>
+  ```bash Install to ~/.local/bin
+  sh -c "$(curl -fsLS get.chezmoi.io)" -- -b $HOME/.local/bin
+  ```
+
+  ```bash Alternative URL for ~/.local/bin
+  sh -c "$(curl -fsLS get.chezmoi.io/lb)"
+  ```
+</CodeGroup>
+
+## Download Pre-Built Packages
+
+Download a package for your distribution and architecture from the [latest release](https://github.com/twpayne/chezmoi/releases/latest):
+
+<Tabs>
+  <Tab title="Debian/Ubuntu (.deb)">
+    Available architectures:
+    - amd64 (x86_64)
+    - arm64 (aarch64)
+    - armel, armhf
+    - i386
+    - ppc64, ppc64le
+    - riscv64
+    - s390x
+    - loong64
+
+    Download from: `https://github.com/twpayne/chezmoi/releases/latest`
+  </Tab>
+
+  <Tab title="RHEL/Fedora (.rpm)">
+    Available architectures:
+    - x86_64 (amd64)
+    - aarch64 (arm64)
+    - armhfp
+    - i686
+    - ppc64, ppc64le
+    - riscv64
+    - s390x
+    - loong64
+
+    Download from: `https://github.com/twpayne/chezmoi/releases/latest`
+  </Tab>
+
+  <Tab title="Alpine (.apk)">
+    Available architectures:
+    - 386, amd64
+    - arm, arm64
+    - ppc64, ppc64le
+    - riscv64
+    - s390x
+    - loong64
+
+    Download from: `https://github.com/twpayne/chezmoi/releases/latest`
+  </Tab>
+
+  <Tab title="Arch Linux">
+    Available as `.pkg.tar.zst` for multiple architectures.
+
+    Download from: `https://github.com/twpayne/chezmoi/releases/latest`
+  </Tab>
+</Tabs>
+
+## Download Pre-Built Binaries
+
+Download an archive for your operating system and architecture containing a pre-built binary and shell completions:
+
+<Tabs>
+  <Tab title="Linux">
+    Download `.tar.gz` archives for:
+    - amd64, i386
+    - arm, arm64
+    - ppc64, ppc64le
+    - riscv64
+    - s390x
+    - loong64, mips64, mips64le
+
+    Special builds:
+    - `linux-glibc_amd64` - glibc version
+    - `linux-musl_amd64` - musl version
+    - `android_arm64` - Termux
+  </Tab>
+
+  <Tab title="macOS">
+    Download `.tar.gz` archives for:
+    - amd64 (Intel)
+    - arm64 (Apple Silicon)
+  </Tab>
+
+  <Tab title="Windows">
+    Download `.zip` archives for:
+    - amd64 (x86_64)
+    - arm64
+    - i386 (32-bit)
+  </Tab>
+
+  <Tab title="FreeBSD">
+    Download `.tar.gz` archives for:
+    - amd64, i386
+    - arm, arm64
+    - riscv64
+  </Tab>
+
+  <Tab title="OpenBSD">
+    Download `.tar.gz` archives for:
+    - amd64, i386
+    - arm, arm64
+    - ppc64
+    - riscv64
+  </Tab>
+</Tabs>
+
+[Download from GitHub Releases →](https://github.com/twpayne/chezmoi/releases/latest)
+
+## Build from Source
+
+Build and install chezmoi with Go 1.25 or later:
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/twpayne/chezmoi.git
+    cd chezmoi
+    ```
+  </Step>
+
+  <Step title="Build and install">
+    ```bash
+    make install-from-git-working-copy
+    ```
+  </Step>
+</Steps>
+
+## Verify Your Download
+
+chezmoi's release process signs the SHA256 checksums of all released assets with [cosign](https://github.com/SigStore/cosign).
+
+<Steps>
+  <Step title="Download verification files">
+    Download the checksum file, signature, and public key:
+
+    ```bash
+    VERSION=$(curl -s https://api.github.com/repos/twpayne/chezmoi/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')
+    curl --location --remote-name-all \
+      https://github.com/twpayne/chezmoi/releases/download/v${VERSION}/chezmoi_${VERSION}_checksums.txt \
+      https://github.com/twpayne/chezmoi/releases/download/v${VERSION}/chezmoi_${VERSION}_checksums.txt.sig \
+      https://github.com/twpayne/chezmoi/releases/download/v${VERSION}/chezmoi_cosign.pub
+    ```
+  </Step>
+
+  <Step title="Verify the signature">
+    Verify the signature with cosign:
+
+    ```bash
+    cosign verify-blob --key=chezmoi_cosign.pub \
+      --signature=chezmoi_${VERSION}_checksums.txt.sig \
+      chezmoi_${VERSION}_checksums.txt
+    ```
+
+    <Warning>
+    cosign should print `Verified OK`. Do not proceed if verification fails.
+    </Warning>
+  </Step>
+
+  <Step title="Verify checksums">
+    Verify the SHA256 sum of your download matches the verified checksum file:
+
+    <CodeGroup>
+      ```bash Linux
+      sha256sum --check chezmoi_${VERSION}_checksums.txt --ignore-missing
+      ```
+
+      ```bash macOS
+      shasum --algorithm 256 --check chezmoi_${VERSION}_checksums.txt --ignore-missing
+      ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quick-start">
+    Learn how to start using chezmoi
+  </Card>
+  <Card title="User Guide" icon="book" href="https://chezmoi.io/user-guide/setup/">
+    Understand chezmoi's concepts and workflow
+  </Card>
+</CardGroup>

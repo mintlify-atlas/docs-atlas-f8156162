@@ -1,0 +1,296 @@
+---
+title: verify
+description: Verify that the destination state matches the target state
+---
+
+The `verify` command checks that the destination directory matches the target state. It exits with success if they match, and fails otherwise.
+
+## Usage
+
+```bash
+chezmoi verify [target]...
+```
+
+## Description
+
+The `verify` command performs the same operations as `chezmoi apply` but on a read-only file system. If any changes would be made, the command exits with an error code.
+
+This is useful for:
+
+- **CI/CD pipelines**: Verify dotfiles are correctly applied in automated environments
+- **Monitoring**: Check if configuration drift has occurred
+- **Testing**: Validate that `chezmoi apply` was successful
+- **Auditing**: Confirm system state matches expected configuration
+
+## Exit Codes
+
+- `0` - Success: destination state matches target state
+- `1` - Failure: destination state differs from target state
+
+## Flags
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="--init" type="boolean" default="false">
+  Recreate the config file from the template in the source directory.
+</ParamField>
+
+<ParamField path="-P, --parent-dirs" type="boolean" default="false">
+  Verify all parent directories.
+</ParamField>
+
+<ParamField path="-r, --recursive" type="boolean" default="true">
+  Recurse into subdirectories.
+</ParamField>
+
+## Examples
+
+### Verify all files
+
+```bash
+chezmoi verify
+```
+
+Exits with code 0 if everything matches, code 1 if differences exist.
+
+### Verify specific files
+
+```bash
+chezmoi verify ~/.bashrc ~/.vimrc
+```
+
+### Verify with verbose output
+
+```bash
+chezmoi verify --verbose
+```
+
+Shows which files are being checked.
+
+### Check exit code
+
+```bash
+if chezmoi verify; then
+    echo "All files match!"
+else
+    echo "Configuration drift detected!"
+    exit 1
+fi
+```
+
+## CI/CD Usage
+
+### GitHub Actions
+
+```yaml
+name: Verify Dotfiles
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * *'  # Daily
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install chezmoi
+        run: |
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b ~/.local/bin
+          
+      - name: Initialize chezmoi
+        run: |
+          chezmoi init --source=$GITHUB_WORKSPACE
+          chezmoi apply
+          
+      - name: Verify configuration
+        run: chezmoi verify
+```
+
+### GitLab CI
+
+```yaml
+verify-dotfiles:
+  stage: test
+  script:
+    - curl -sfL https://git.io/chezmoi | sh
+    - ./bin/chezmoi init --source=.
+    - ./bin/chezmoi apply
+    - ./bin/chezmoi verify
+  only:
+    - main
+```
+
+### Jenkins
+
+```groovy
+stage('Verify Dotfiles') {
+    steps {
+        sh '''
+            curl -sfL https://git.io/chezmoi | sh
+            ./bin/chezmoi init --source=.
+            ./bin/chezmoi apply  
+            ./bin/chezmoi verify
+        '''
+    }
+}
+```
+
+## Monitoring
+
+### Cron job for drift detection
+
+```bash
+#!/bin/bash
+# /etc/cron.daily/check-dotfiles
+
+if ! chezmoi verify --quiet; then
+    echo "Configuration drift detected!" | \
+        mail -s "Dotfile Verification Failed" admin@example.com
+fi
+```
+
+### Systemd timer
+
+```ini
+# /etc/systemd/system/chezmoi-verify.service
+[Unit]
+Description=Verify dotfiles with chezmoi
+
+[Service]
+Type=oneshot  
+User=username
+ExecStart=/usr/bin/chezmoi verify
+```
+
+```ini
+# /etc/systemd/system/chezmoi-verify.timer
+[Unit]
+Description=Daily dotfile verification
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable:
+```bash
+systemctl enable --now chezmoi-verify.timer
+```
+
+## Terminal Output
+
+### Success
+
+```bash
+$ chezmoi verify
+$ echo $?
+0
+```
+
+### Failure
+
+```bash
+$ chezmoi verify
+error: .bashrc: contents differ
+error: .vimrc: not in destination state
+$ echo $?
+1
+```
+
+### Verbose mode
+
+```bash
+$ chezmoi verify --verbose
+.bashrc: verifying
+.gitconfig: verifying
+.vimrc: verifying  
+error: .bashrc: contents differ
+$ echo $?
+1
+```
+
+## Troubleshooting
+
+### Find which files differ
+
+```bash
+chezmoi verify || chezmoi status
+```
+
+If verification fails, check status to see what's different.
+
+### Get detailed differences
+
+```bash
+chezmoi verify || chezmoi diff
+```
+
+Show exactly what differs.
+
+### Fix verification failures
+
+```bash
+if ! chezmoi verify; then
+    echo "Differences found. Applying..."
+    chezmoi apply
+    chezmoi verify  # Verify again
+fi
+```
+
+## Common Patterns
+
+### Verify before and after apply
+
+```bash
+# Should fail if changes needed
+chezmoi verify || echo "Changes needed"
+
+# Apply changes
+chezmoi apply
+
+# Should now succeed
+chezmoi verify && echo "Verified!"
+```
+
+### Verify subset of files
+
+```bash
+# Only verify config files
+chezmoi verify --include=files ~/.config
+```
+
+### Verify in Docker
+
+```dockerfile
+FROM ubuntu:latest
+
+# Install chezmoi
+RUN sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+
+# Copy dotfiles
+COPY . /root/.local/share/chezmoi
+
+# Apply and verify
+RUN chezmoi init --source /root/.local/share/chezmoi && \
+    chezmoi apply && \
+    chezmoi verify
+```
+
+## Related Commands
+
+- [apply](/commands/apply) - Apply changes to match target state
+- [status](/commands/status) - Show what differs
+- [diff](/commands/diff) - Show detailed differences

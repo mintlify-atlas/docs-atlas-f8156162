@@ -1,0 +1,323 @@
+---
+title: doctor
+description: Check your system for potential problems
+---
+
+The `doctor` command checks your system for potential problems and reports the results. It helps diagnose configuration issues and verify that all required tools are properly installed.
+
+## Usage
+
+```bash
+chezmoi doctor
+```
+
+## Description
+
+The `doctor` command performs a comprehensive health check of your chezmoi installation and environment. It verifies:
+
+- **Version information**: chezmoi version, Go version, OS/arch
+- **Configuration**: Config file location and validity
+- **Directories**: Source, working tree, and destination directories
+- **VCS**: Git repository status (clean, dirty, or error)
+- **Tools**: Editor, shell, diff, merge, and git commands
+- **Encryption**: age, GPG, and other encryption tools
+- **Secret managers**: 1Password, Bitwarden, LastPass, etc.
+- **System capabilities**: Symlinks, hard links
+
+Each check returns a status:
+
+- `ok` - Check passed
+- `info` - Informational message (not a problem)
+- `warning` - Potential issue (chezmoi will still work)
+- `error` - Problem that needs to be fixed
+- `skipped` - Check was skipped (e.g., no network for version check)
+- `failed` - Check could not be completed
+
+## Flags
+
+<ParamField path="--no-network" type="boolean" default="false">
+  Do not use network connection. Skips the latest version check.
+</ParamField>
+
+## Examples
+
+### Run a full health check
+
+```bash
+chezmoi doctor
+```
+
+### Run without network access
+
+```bash
+chezmoi doctor --no-network
+```
+
+Skips checking for the latest chezmoi version.
+
+### Check exit code
+
+```bash
+if chezmoi doctor; then
+    echo "All checks passed"
+else
+    echo "Issues detected"
+fi
+```
+
+The command exits with code 1 if any check returns `error`.
+
+## Terminal Output
+
+```bash
+$ chezmoi doctor
+RESULT   CHECK                MESSAGE
+ok       version              v2.46.1, commit abc1234, built at 2024-01-15T10:30:00Z
+ok       latest-version       v2.46.1
+ok       os-arch              linux/amd64 (Ubuntu 22.04)
+ok       go-version           go1.21.5 (gc)
+ok       executable           /usr/local/bin/chezmoi
+ok       upgrade-method       snap-refresh
+ok       config-file          found ~/.config/chezmoi/chezmoi.toml, last modified 2024-01-10T14:22:30Z
+ok       source-dir           ~/.local/share/chezmoi is a git working tree (clean)
+ok       working-tree         ~/.local/share/chezmoi is a directory
+ok       dest-dir             ~ is a directory
+ok       cd-command           found /bin/bash
+ok       cd-args              /bin/bash
+info     diff-command         not set
+ok       edit-command         found /usr/bin/vim
+ok       edit-args            /usr/bin/vim
+ok       git-command          found /usr/bin/git, version 2.39.2
+warning  merge-command        not set
+ok       shell-command        found /bin/zsh
+ok       shell-args           /bin/zsh
+warning  age-command          not set
+info     gpg-command          found /usr/bin/gpg, version 2.2.27
+info     1password-command    found /usr/bin/op, version 2.18.0
+info     bitwarden-command    not set
+```
+
+## Check Descriptions
+
+### Version Checks
+
+**version**
+- Shows chezmoi version, commit, and build date
+- `warning` if version information is incomplete
+
+**latest-version**  
+- Compares installed version with latest GitHub release
+- `warning` if a newer version is available
+- `skipped` with `--no-network`
+
+**go-version**
+- Shows Go version used to build chezmoi
+
+**os-arch**
+- Shows operating system and architecture
+- Includes OS release information if available
+
+### Executable Checks
+
+**executable**
+- Shows path to chezmoi binary
+
+**upgrade-method**
+- Shows detected upgrade method (e.g., `brew-upgrade`, `snap-refresh`)
+- Helps determine how to upgrade chezmoi
+
+### Configuration Checks
+
+**config-file**
+- Validates config file exists and is readable
+- Shows path and last modification time
+- `info` if config file doesn't exist (optional)
+- `error` if config file is invalid
+
+### Directory Checks
+
+**source-dir**
+- Verifies source directory exists
+- Shows git status if it's a repository:
+  - `(clean)` - No uncommitted changes
+  - `(dirty)` - Uncommitted changes present
+  - `(error)` - Git error
+
+**working-tree**
+- Verifies working tree directory exists
+
+**dest-dir**
+- Verifies destination directory exists
+
+### Tool Checks
+
+**cd-command**, **edit-command**, **shell-command**
+- `error` if not found and required
+- Shows path and version if available
+
+**diff-command**, **merge-command**
+- `info` if not set (optional tools)
+- `warning` if set but not found
+
+**git-command**
+- `warning` if not found
+- Shows version if found
+
+### Encryption Tool Checks
+
+**age-command**, **gpg-command**
+- `info` if not found (optional)
+- Shows version if found
+
+**pinentry-command**
+- Used by GPG for password entry
+- `info` if not set
+- `warning` if set but not found
+
+### Secret Manager Checks
+
+**1password-command**, **bitwarden-command**, etc.
+- `info` if not found (optional)
+- Shows version if found
+- `error` if found but version is too old
+
+### System Capability Checks
+
+**symlink**
+- Tests if symbolic links can be created
+- `failed` if symlinks not supported
+
+**hardlink**  
+- Tests if hard links can be created
+
+**umask**
+- Shows current umask value
+
+## Common Issues
+
+### Config file not found
+
+```
+info     config-file          ~/.config/chezmoi/chezmoi.toml: not found
+```
+
+This is normal if you haven't created a config file. Create one:
+
+```bash
+chezmoi edit-config
+```
+
+### Dirty working tree
+
+```
+warning  source-dir           ~/.local/share/chezmoi is a git working tree (dirty)
+```
+
+You have uncommitted changes:
+
+```bash
+chezmoi cd
+git status
+git add .
+git commit -m "Update"
+```
+
+### Outdated version
+
+```
+warning  latest-version       v2.47.0
+```
+
+Your chezmoi is out of date. Upgrade:
+
+```bash
+chezmoi upgrade
+```
+
+### Tool not found
+
+```
+warning  git-command          git not found in $PATH
+```
+
+Install the missing tool:
+
+```bash
+# Ubuntu/Debian
+sudo apt install git
+
+# macOS
+brew install git
+
+# Fedora
+sudo dnf install git
+```
+
+### Minimum version not met
+
+```
+error    gopass-command       found /usr/bin/gopass, version 1.12.0, need 1.14.0
+```
+
+Upgrade the tool to the minimum required version.
+
+## Troubleshooting Workflow
+
+```bash
+# 1. Run doctor
+chezmoi doctor
+
+# 2. Review errors and warnings
+# Fix any issues
+
+# 3. Verify fixes
+chezmoi doctor
+
+# 4. Test chezmoi functionality  
+chezmoi apply --dry-run --verbose
+```
+
+## CI/CD Usage
+
+### Verify environment
+
+```yaml
+- name: Verify chezmoi environment
+  run: |
+    chezmoi doctor
+    chezmoi doctor --no-network
+```
+
+### Fail on warnings
+
+```bash
+#!/bin/bash
+output=$(chezmoi doctor 2>&1)
+echo "$output"
+
+if echo "$output" | grep -q "error\|warning"; then
+    echo "Doctor found issues"
+    exit 1
+fi
+```
+
+## Saving Output
+
+### Save for bug reports
+
+```bash
+chezmoi doctor > chezmoi-doctor.txt 2>&1
+```
+
+### Redact sensitive information
+
+The output includes your home directory path. Redact if needed:
+
+```bash
+chezmoi doctor | sed "s|$HOME|~|g"
+```
+
+## Related Commands
+
+- [upgrade](/commands/upgrade) - Upgrade chezmoi to the latest version
+- [init](/commands/init) - Initialize chezmoi

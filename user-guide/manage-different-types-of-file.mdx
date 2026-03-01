@@ -1,0 +1,201 @@
+---
+title: Manage Different Types of File
+description: Handle special file types and scenarios with chezmoi
+---
+
+## Have chezmoi create a directory, but ignore its contents
+
+For directories like `~/src` where you want the directory created but not its contents managed:
+
+<Steps>
+  <Step title="Create the directory in source state">
+    ```bash
+    mkdir -p $(chezmoi source-path)/src
+    ```
+
+    chezmoi will create this directory when you run `chezmoi apply`.
+  </Step>
+
+  <Step title="Add a .keep file">
+    ```bash
+    touch $(chezmoi source-path)/src/.keep
+    ```
+
+    This ensures git tracks the directory while chezmoi ignores the `.keep` file.
+  </Step>
+</Steps>
+
+<Note>
+chezmoi automatically creates `.keep` files when you add an empty directory with `chezmoi add`.
+</Note>
+
+## Ensure that a target is removed
+
+Create a `.chezmoiremove` file in the source directory with patterns of files to remove:
+
+<CodeGroup>
+```text ~/.local/share/chezmoi/.chezmoiremove
+# Remove old config files
+.oldconfig
+*.backup
+
+# Machine-specific removals
+{{- if eq .chezmoi.hostname "work-laptop" }}
+.personal-scripts
+{{- end }}
+```
+
+```bash Preview before removing
+chezmoi apply --dry-run --verbose
+```
+</CodeGroup>
+
+<Warning>
+Always preview with `--dry-run` first. `.chezmoiremove` is a template, so you can remove different files on different machines. Negative matches (prefixed with `!`) and targets in `.chezmoiignore` will never be removed.
+</Warning>
+
+## Manage part, but not all, of a file
+
+chezmoi provides two approaches for managing partial file contents:
+
+<Tabs>
+  <Tab title="modify_ scripts">
+    A `modify_` script receives the current file content on stdin and outputs the modified content:
+
+    <CodeGroup>
+    ```sh modify_dot_config.sh
+    #!/bin/sh
+    # Replace 'old' with 'new' in the file
+    sed 's/old/new/g'
+    ```
+
+    ```sh With temporary file
+    #!/bin/sh
+    tempfile="$(mktemp)"
+    trap 'rm -rf "${tempfile}"' EXIT
+    cat > "${tempfile}"
+    # modify ${tempfile}
+    cat "${tempfile}"
+    ```
+    </CodeGroup>
+
+    <Note>
+    If the file doesn't exist, stdin will be empty and the script must write a complete file to stdout.
+    </Note>
+  </Tab>
+
+  <Tab title="Modify templates">
+    Scripts containing `chezmoi:modify-template` are interpreted as templates:
+
+    <CodeGroup>
+    ```text modify_dot_config
+    {{- /* chezmoi:modify-template */ -}}
+    {{- .chezmoi.stdin | replaceAllRegex "old" "new" }}
+    ```
+
+    ```text Modify JSON/YAML
+    {{- /* chezmoi:modify-template */ -}}
+    {{ fromJson .chezmoi.stdin | setValueAtPath "key.nestedKey" "value" | toPrettyJson }}
+    ```
+    </CodeGroup>
+
+    <Warning>
+    Modify templates must NOT have a `.tmpl` extension.
+    </Warning>
+  </Tab>
+
+  <Tab title="Template re-generation">
+    For small changes, use templates to regenerate the full file:
+
+    ```text ~/.local/share/chezmoi/dot_kube/config.tmpl
+    current-context: {{ output "kubectl" "config" "current-context" | trim }}
+    ```
+  </Tab>
+</Tabs>
+
+## Manage a file's permissions, but not its contents
+
+Use the `create_` attribute to manage permissions without changing file contents:
+
+<Tabs>
+  <Tab title="Using create_ attribute">
+    Create an empty file with the desired attributes:
+
+    ```bash
+    # Ensures ~/.kube/config has 0600 permissions
+    touch $(chezmoi source-path)/dot_kube/private_config
+    ```
+
+    chezmoi will apply permission changes from `private_`, `executable_`, and `readonly_` attributes without modifying contents.
+
+    <Note>
+    This approach creates the file if it doesn't exist.
+    </Note>
+  </Tab>
+
+  <Tab title="Using run_ script">
+    To only set permissions if the file already exists:
+
+    ```bash run_set_kube_config_permissions.sh
+    #!/bin/sh
+
+    FILE="$HOME/.kube/config"
+    if [ -f "$FILE" ]; then
+        if [ "$(stat -c %a "$FILE")" != "600" ] ; then
+            chmod 600 "$FILE"
+        fi
+    fi
+    ```
+  </Tab>
+</Tabs>
+
+## Handle configuration files which are externally modified
+
+Some programs modify their own config files. To track these changes, use symlinks:
+
+<Steps>
+  <Step title="Copy config to source directory">
+    ```bash
+    cp ~/.config/Code/User/settings.json $(chezmoi source-path)
+    ```
+  </Step>
+
+  <Step title="Tell chezmoi to ignore this file">
+    ```bash
+    echo settings.json >> $(chezmoi source-path)/.chezmoiignore
+    ```
+  </Step>
+
+  <Step title="Create a symlink to the source file">
+    ```bash
+    mkdir -p $(chezmoi source-path)/private_dot_config/private_Code/User
+    echo -n "{{ .chezmoi.sourceDir }}/settings.json" > $(chezmoi source-path)/private_dot_config/private_Code/User/symlink_settings.json.tmpl
+    ```
+
+    The `private_` prefix is used because `~/.config` and `~/.config/Code` are private by default.
+  </Step>
+
+  <Step title="Apply the changes">
+    ```bash
+    chezmoi apply -v
+    ```
+
+    Now when the program modifies its config, it modifies the file in your source state.
+  </Step>
+</Steps>
+
+## Populate `~/.ssh/authorized_keys` with your public SSH keys from GitHub
+
+chezmoi can retrieve public SSH keys from GitHub:
+
+```text ~/.local/share/chezmoi/dot_ssh/authorized_keys.tmpl
+{{ range gitHubKeys "$GITHUB_USERNAME" -}}
+{{   .Key }}
+{{ end -}}
+```
+
+This will populate `~/.ssh/authorized_keys` with all public keys from your GitHub account.
+
+<Tip>
+You can use similar template functions for other services like `gitLabKeys` and `gitHubLatestRelease`.
+</Tip>

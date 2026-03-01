@@ -1,0 +1,406 @@
+---
+title: Template Directives
+description: File-specific template options using directives
+---
+
+# Template Directives
+
+File-specific template options can be set using template directives. Directives are special comments in templates that configure how the template is processed.
+
+## Directive Syntax
+
+Directives use the format:
+
+```text
+chezmoi:template:$KEY=$VALUE
+```
+
+Where `$KEY` is the option name and `$VALUE` is its value. `$VALUE` must be quoted if it contains spaces or double quotes.
+
+### Multiple Directives
+
+Multiple key/value pairs may be specified on a single line:
+
+```text
+chezmoi:template:left-delimiter="[[" right-delimiter="]]"
+```
+
+If multiple directives are present in a file, later directives override earlier ones.
+
+### Removing Directives
+
+Lines containing template directives are **automatically removed** to avoid parse errors from any delimiters. This means directives don't appear in the final output.
+
+## Delimiters
+
+By default, chezmoi uses the standard `text/template` delimiters `{{` and `}}`. These can be changed per-file using the delimiter directive.
+
+### Syntax
+
+```text
+chezmoi:template:left-delimiter=$LEFT right-delimiter=$RIGHT
+```
+
+Either or both of `left-delimiter=$LEFT` and `right-delimiter=$RIGHT` may be omitted. If either `$LEFT` or `$RIGHT` is empty, the default delimiter (`{{` and `}}` respectively) is used instead.
+
+<Note>
+Delimiters are specific to the file in which they appear and are not inherited by templates called from the file.
+</Note>
+
+### Examples
+
+#### Shell Script with Custom Delimiters
+
+```bash title="script.sh.tmpl"
+#!/bin/bash
+# chezmoi:template:left-delimiter="# [[" right-delimiter="]]"
+
+echo "Hello, # [[ .chezmoi.username ]]!"
+
+# [[ if eq .chezmoi.os "darwin" ]]
+echo "Running on macOS"
+# [[ else ]]
+echo "Running on # [[ .chezmoi.os ]]"
+# [[ end ]]
+```
+
+#### Docker Compose with Alternative Delimiters
+
+```yaml title="docker-compose.yml.tmpl"
+# chezmoi:template:left-delimiter="<%" right-delimiter="%>"
+version: '3'
+services:
+  app:
+    image: myapp:<% .version %>
+    environment:
+      - USER=<% .chezmoi.username %>
+```
+
+#### Only Change Left Delimiter
+
+```text
+chezmoi:template:left-delimiter="<<<"
+# Uses <<< and }}
+<<< .variable }}}
+```
+
+## Encoding
+
+Templates are always written in UTF-8 with no byte order mark. The output encoding can be transformed using the encoding directive.
+
+### Syntax
+
+```text
+chezmoi:template:encoding=$ENCODING
+```
+
+### Supported Encodings
+
+| Encoding | Description |
+|----------|-------------|
+| `utf-8` | UTF-8 with no byte order mark (default) |
+| `utf-8-bom` | UTF-8 with a byte order mark |
+| `utf-16-be` | Big-endian UTF-16 with no byte order mark |
+| `utf-16-be-bom` | Big-endian UTF-16 with a byte order mark |
+| `utf-16-le` | Little-endian UTF-16 with no byte order mark |
+| `utf-16-le-bom` | Little-endian UTF-16 with a byte order mark |
+
+### Examples
+
+#### UTF-16 Little-Endian Output
+
+```text title="config.ini.tmpl"
+{{/* chezmoi:template:encoding=utf-16-le */}}
+[settings]
+value={{ .setting }}
+```
+
+#### UTF-8 with BOM
+
+```text title="file.txt.tmpl"
+{{/* chezmoi:template:encoding=utf-8-bom */}}
+Content goes here
+```
+
+## Format Indent
+
+By default, chezmoi's `toJson`, `toToml`, and `toYaml` template functions use an indent of two spaces. This can be overridden per-file.
+
+### Syntax
+
+#### Literal String Indent
+
+```text
+chezmoi:template:format-indent=$STRING
+```
+
+Sets the indent to the literal `$STRING`.
+
+#### Width-Based Indent
+
+```text
+chezmoi:template:format-indent-width=$WIDTH
+```
+
+Sets the indent to `$WIDTH` spaces.
+
+### Examples
+
+#### Tab Indentation
+
+```text title="config.json.tmpl"
+{{/* chezmoi:template:format-indent="\t" */}}
+{{ dict "key" "value" "nested" (dict "a" "b") | toJson }}
+```
+
+Output:
+```json
+{
+	"key": "value",
+	"nested": {
+		"a": "b"
+	}
+}
+```
+
+#### Four-Space Indentation
+
+```text title="config.yaml.tmpl"
+{{/* chezmoi:template:format-indent-width=4 */}}
+{{ dict "key" "value" "list" (list 1 2 3) | toYaml }}
+```
+
+Output:
+```yaml
+key: value
+list:
+    - 1
+    - 2
+    - 3
+```
+
+## Line Endings
+
+Many template functions use UNIX-style line endings (`lf`/`\n`), which may cause unexpected output on Windows or when running `chezmoi diff` on `modify_` templates. Line endings can be overridden with a directive.
+
+### Syntax
+
+```text
+chezmoi:template:line-endings=$VALUE
+```
+
+### Values
+
+| Value | Effect |
+|-------|--------|
+| `lf` | Use UNIX-style line endings (`\n`) |
+| `crlf` | Use Windows line endings (`\r\n`) |
+| `native` | Use platform-native line endings (`crlf` on Windows, `lf` elsewhere) |
+| Custom string | Use the literal string as line ending |
+
+### Examples
+
+#### Windows Line Endings
+
+```bash title="script.bat.tmpl"
+REM chezmoi:template:line-endings=crlf
+@echo off
+echo {{ .message }}
+```
+
+#### Platform-Native Line Endings
+
+```text title="file.txt.tmpl"
+{{/* chezmoi:template:line-endings=native */}}
+Line 1
+Line 2
+```
+
+#### Force LF on Windows
+
+```bash title="script.sh.tmpl"
+# chezmoi:template:line-endings=lf
+#!/bin/bash
+echo "{{ .message }}"
+```
+
+## Missing Keys
+
+By default, chezmoi returns an error if a template indexes a map with a key that is not present. This behavior can be changed globally with the `template.options` configuration variable or per-file with a directive.
+
+### Syntax
+
+```text
+chezmoi:template:missing-key=$VALUE
+```
+
+### Values
+
+| Value | Effect |
+|-------|--------|
+| `error` | Return an error on any missing key (default) |
+| `invalid` | Ignore missing keys. If printed, the result is `<no value>` |
+| `zero` | Ignore missing keys. If printed, the result is the zero value |
+
+### Examples
+
+#### Ignore Missing Keys with Zero Values
+
+```text title="config.tmpl"
+{{/* chezmoi:template:missing-key=zero */}}
+username={{ .username }}
+email={{ .email }}
+optional={{ .optional_field }}
+```
+
+If `.optional_field` doesn't exist, it outputs an empty string instead of erroring.
+
+#### Show "no value" for Missing Keys
+
+```text title="debug.tmpl"
+{{/* chezmoi:template:missing-key=invalid */}}
+Debug info:
+- required: {{ .required }}
+- optional: {{ .optional }}
+```
+
+Output if `.optional` is missing:
+```text
+Debug info:
+- required: value
+- optional: <no value>
+```
+
+## Combining Directives
+
+Multiple directives can be used in the same file:
+
+```powershell title="script.ps1.tmpl"
+# chezmoi:template:left-delimiter="<%" right-delimiter="%>" line-endings=crlf encoding=utf-8-bom
+
+Write-Host "Hello, <% .chezmoi.username %>!"
+
+<% if eq .chezmoi.os "windows" %>
+Write-Host "Running on Windows"
+<% end %>
+```
+
+## Directive Placement
+
+Directives can appear anywhere in the file but should typically be placed:
+
+1. **At the top** of the file for visibility
+2. **Inside comments** appropriate for the file type
+3. **Before** the content they affect
+
+### Examples
+
+```bash title="Shell Script"
+#!/bin/bash
+# chezmoi:template:left-delimiter="[[" right-delimiter="]]"
+```
+
+```go title="Go Template Comment"
+{{/* chezmoi:template:missing-key=zero */}}
+```
+
+```yaml title="YAML Comment"
+# chezmoi:template:format-indent-width=4
+```
+
+```html title="HTML Comment"
+<!-- chezmoi:template:encoding=utf-8-bom -->
+```
+
+## Practical Examples
+
+### PowerShell Script
+
+```powershell title="dot_profile.ps1.tmpl"
+# chezmoi:template:line-endings=crlf
+# chezmoi:template:left-delimiter="<%" right-delimiter="%>"
+
+$env:PATH += ";$HOME\\bin"
+
+<% if .work %>
+# Work configuration
+$env:COMPANY_HOME = "<% .company_path %>"
+<% end %>
+
+Write-Host "Welcome, <% .chezmoi.username %>!"
+```
+
+### JSON Configuration with Tabs
+
+```json title="dot_config_app_settings.json.tmpl"
+{{/* chezmoi:template:format-indent="\t" */}}
+{{
+	dict 
+		"theme" .theme
+		"fontSize" .font_size
+		"plugins" .plugins
+	| toJson
+}}
+```
+
+### Windows Batch File
+
+```bat title="setup.bat.tmpl"
+REM chezmoi:template:line-endings=crlf encoding=utf-8-bom
+@echo off
+set USERNAME={{ .chezmoi.username }}
+set INSTALL_DIR={{ .install_dir }}
+echo Installing for %USERNAME%...
+```
+
+### Modify Template with Matching Line Endings
+
+```bash title="modify_dot_bashrc.tmpl"
+# chezmoi:template:line-endings=native
+# chezmoi:modify-template
+{{ .chezmoi.stdin }}
+
+# Added by chezmoi
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## Global vs. File-Specific Options
+
+### Global Configuration
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+[template]
+    options = ["missingkey=zero"]
+```
+
+Applies to all templates.
+
+### File-Specific Override
+
+```text title="specific-file.tmpl"
+{{/* chezmoi:template:missing-key=error */}}
+```
+
+Overrides the global setting for this file only.
+
+## Debugging Directives
+
+Test directive behavior:
+
+```bash
+# Execute template with directives
+chezmoi cat ~/.bashrc
+
+# View the rendered template
+chezmoi execute-template < template.tmpl
+
+# Compare source and target
+chezmoi diff
+```
+
+## Related Pages
+
+- [Template Overview](/reference/templates/overview) - Template system basics
+- [Template Functions](/reference/templates/functions) - Available functions
+- [Template Variables](/reference/templates/variables) - Built-in variables
+- [Configuration File](/reference/configuration-file) - Global template options

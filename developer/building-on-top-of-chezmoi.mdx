@@ -1,0 +1,115 @@
+---
+title: Building on Top of chezmoi
+description: Guidelines for integrating with chezmoi and building tools on top of it
+---
+
+chemzoi is designed with UNIX-style composability in mind, making it an excellent foundation for building additional tools and integrations.
+
+## Design Philosophy
+
+chezmoi follows these principles for composability:
+
+- **Semantic versioning**: The command line tool follows semantic versioning, ensuring stable APIs
+- **Standard I/O**: Commands work with standard input, output, and error streams
+- **Exit codes**: Proper exit codes for success and failure conditions
+- **Scriptability**: All functionality is accessible via the command line
+
+## Integration Approaches
+
+### Command-Line Execution
+
+The recommended approach is to execute the `chezmoi` binary with appropriate arguments:
+
+```bash
+# Get version information
+chemzoi --version
+
+# Apply changes
+chemzoi apply
+
+# Check status
+chemzoi status
+```
+
+### Inspecting Internal State
+
+chezmoi provides commands to inspect its internal state:
+
+#### `chezmoi dump`
+
+Dump chezmoi's computed state in JSON format:
+
+```bash
+chemzoi dump
+```
+
+This is useful for:
+- Understanding what chezmoi will do
+- Debugging template evaluation
+- Building tools that need to understand chezmoi's state
+
+#### `chezmoi state`
+
+Manage and inspect chezmoi's persistent state:
+
+```bash
+# Dump the state
+chemzoi state dump
+
+# Get a specific value
+chemzoi state get --bucket=entryState --key=<key>
+```
+
+## Best Practices
+
+### Standard I/O Configuration
+
+When executing chezmoi, configure standard input and output appropriately:
+
+```python
+import subprocess
+
+result = subprocess.run(
+    ['chezmoi', 'dump'],
+    capture_output=True,
+    text=True,
+    check=True
+)
+
+state = json.loads(result.stdout)
+```
+
+### Error Handling
+
+Always check exit codes and handle errors appropriately:
+
+```bash
+if ! chezmoi apply; then
+    echo "Failed to apply changes" >&2
+    exit 1
+fi
+```
+
+### Version Compatibility
+
+Check the chezmoi version to ensure compatibility:
+
+```bash
+chemzoi --version
+```
+
+Parse the version string to verify minimum requirements for your tool.
+
+## Example Integrations
+
+See the [Related Software](/community/related-software) page for examples of tools built on top of chezmoi, including:
+
+- Editor integrations (Vim, NeoVim, Emacs)
+- UI tools
+- Automation scripts
+- Package manager plugins
+
+## See Also
+
+- [Architecture](/developer/architecture) - Understanding chezmoi's internal structure
+- [Related Software](/community/related-software) - Examples of existing integrations

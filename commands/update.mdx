@@ -1,0 +1,122 @@
+---
+title: update
+description: Pull changes from the source repository and apply them
+---
+
+The `update` command pulls the latest changes from your source repository and optionally applies them to your system.
+
+## Usage
+
+```bash
+chezmoi update
+```
+
+## Description
+
+The `update` command combines pulling changes from your version control system with applying those changes to your destination directory.
+
+**Default behavior:**
+- If `update.command` is set in the config, chezmoi runs that command with `update.args` in the working tree
+- Otherwise, chezmoi runs `git pull --autostash --rebase` (with `--recurse-submodules` if enabled)
+- Uses chezmoi's builtin git if `useBuiltinGit` is `true` or if `git.command` cannot be found in `$PATH`
+
+## Flags
+
+<ParamField path="-a, --apply" type="boolean" default="true">
+  Apply changes after pulling. Can be disabled with `--apply=false`.
+</ParamField>
+
+<ParamField path="--recurse-submodules" type="boolean" default="true">
+  Update submodules recursively. Can be disabled with `--recurse-submodules=false`. Can be configured via `update.recurseSubmodules` in the config file.
+</ParamField>
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="--init" type="boolean" default="false">
+  Recreate the config file from the template in the source directory.
+</ParamField>
+
+<ParamField path="-P, --parent-dirs" type="boolean" default="false">
+  Apply changes to all parent directories.
+</ParamField>
+
+<ParamField path="-r, --recursive" type="boolean" default="true">
+  Recurse into subdirectories when applying.
+</ParamField>
+
+## Configuration
+
+You can customize the update behavior in your config file:
+
+```toml
+[update]
+    command = "git"
+    args = ["pull", "--rebase"]
+    apply = true
+    recurseSubmodules = true
+```
+
+## Examples
+
+### Update and apply changes
+
+```bash
+chezmoi update
+```
+
+This is equivalent to:
+```bash
+cd ~/.local/share/chezmoi
+git pull --autostash --rebase
+chezmoi apply
+```
+
+### Update without applying
+
+```bash
+chezmoi update --apply=false
+```
+
+Pulls changes but doesn't apply them. Useful when you want to review changes first.
+
+### Update with dry run
+
+```bash
+chezmoi update --dry-run --verbose
+```
+
+Shows what changes would be pulled and applied without making any changes.
+
+### Update and check diff
+
+```bash
+chezmoi update --apply=false
+chezmoi diff
+```
+
+Pull changes, review them, then apply manually if desired.
+
+## Terminal Output
+
+```bash
+$ chezmoi update
+From github.com:username/dotfiles
+   abc1234..def5678  main -> origin/main
+Updating abc1234..def5678
+Fast-forward
+ .bashrc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+.bashrc: updating
+```
+
+## Related Commands
+
+- [init](/commands/init) - Initialize chezmoi with a repository
+- [apply](/commands/apply) - Apply changes without pulling
+- [diff](/commands/diff) - View differences before applying

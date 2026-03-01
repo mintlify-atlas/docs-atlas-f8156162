@@ -1,0 +1,207 @@
+---
+title: Configuration File
+description: Complete reference for chezmoi's configuration file options
+---
+
+# Configuration File
+
+chezmoi searches for its configuration file according to the [XDG Base Directory Specification](https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html). The base name of the config file is `chezmoi`. If multiple configuration file formats are present, chezmoi will report an error.
+
+In most installations, the config file will be read from `$HOME/.config/chezmoi/chezmoi.$FORMAT` (`%USERPROFILE%/.config/chezmoi/chezmoi.$FORMAT` on Windows), where `$FORMAT` is one of `json`, `jsonc`, `toml`, or `yaml`. The config file can be set explicitly with the `--config` command line option. By default, the format is detected based on the extension of the config file name, but can be overridden with the `--config-format` command line option.
+
+## Configuration File Formats
+
+chezmoi supports the following configuration file formats:
+
+- **JSON** (`.json`): Standard JSON format
+- **JSONC** (`.jsonc`): JSON with comments
+- **TOML** (`.toml`): Tom's Obvious, Minimal Language
+- **YAML** (`.yaml` or `.yml`): YAML Ain't Markup Language
+
+## Global Configuration Options
+
+### Directory Paths
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sourceDir` | string | `~/.local/share/chezmoi` | The source directory |
+| `destDir` | string | `~` | The destination directory |
+| `cacheDir` | string | OS-specific | The cache directory |
+| `persistentState` | string | OS-specific | Path to persistent state file |
+| `workingTree` | string | Same as `sourceDir` | The git working tree |
+| `tempDir` | string | OS temp dir | Temporary directory for chezmoi operations |
+| `scriptTempDir` | string | OS temp dir | Temporary directory for scripts |
+
+### Display Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `color` | string/bool | `auto` | Colorize output (`true`, `false`, or `auto`) |
+| `format` | string | - | Output format (`json`, `yaml`, etc.) |
+| `pager` | string | `$PAGER` or `less` | Pager command |
+| `pagerArgs` | []string | - | Arguments to pass to pager |
+| `progress` | bool | `auto` | Show progress bars |
+| `verbose` | bool | `false` | Enable verbose output |
+
+### Behavior Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `mode` | string | `file` | Mode (`file` or `symlink`) |
+| `umask` | int | OS default | File mode creation mask |
+| `safe` | bool | `false` | Safe mode - require confirmation for destructive operations |
+| `interactive` | bool | `false` | Prompt for confirmation |
+| `lessInteractive` | bool | `false` | Reduce interactive prompts |
+
+### Encryption Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `encryption` | string | - | Encryption tool (`age` or `gpg`) |
+| `age.command` | string | `age` | Age command |
+| `age.suffix` | string | `.age` | Suffix for age-encrypted files |
+| `gpg.command` | string | `gpg` | GPG command |
+| `gpg.suffix` | string | `.asc` | Suffix for GPG-encrypted files |
+
+### Git Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `git.autoAdd` | bool | `false` | Automatically add changes to git |
+| `git.autoCommit` | bool | `false` | Automatically commit changes |
+| `git.autoPush` | bool | `false` | Automatically push changes to remote |
+| `git.command` | string | `git` | Git command to use |
+
+### Template Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `template.options` | []string | `["missingkey=error"]` | Template execution options |
+
+### Environment Variables
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `env` | map[string]string | Additional environment variables for all commands |
+| `scriptEnv` | map[string]string | Additional environment variables for scripts only |
+
+### Custom Data
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `data` | map[string]any | Custom template variables accessible via `.variable` |
+
+## Password Manager Configurations
+
+Each password manager can be configured with specific options:
+
+### 1Password
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `onepassword.command` | string | `op` | 1Password CLI command |
+| `onepassword.cache` | bool | `true` | Enable caching |
+| `onepassword.prompt` | bool | `true` | Prompt for authentication |
+
+### Bitwarden
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `bitwarden.command` | string | `bw` | Bitwarden CLI command |
+
+### LastPass
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `lastpass.command` | string | `lpass` | LastPass CLI command |
+
+### Pass
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pass.command` | string | `pass` | Pass command |
+
+### Vault
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `vault.command` | string | `vault` | Vault CLI command |
+
+See [Password Manager Functions](/reference/templates/password-manager-functions) for usage details.
+
+## Hooks
+
+Hooks allow you to run commands before or after specific chezmoi operations:
+
+```toml
+[hooks.read-source-state.pre]
+command = ".local/share/chezmoi/.validate.sh"
+
+[hooks.apply.post]
+command = "notify-send"
+args = ["chezmoi", "Applied successfully"]
+```
+
+Available hook points:
+- `read-source-state`
+- `apply`
+
+## Interpreters
+
+Configure interpreters for scripts:
+
+```toml
+[interpreters.ps1]
+command = "pwsh"
+args = ["-NoLogo"]
+```
+
+## Examples
+
+### TOML Configuration
+
+```toml title="~/.config/chezmoi/chezmoi.toml"
+sourceDir = "~/.dotfiles"
+
+[data]
+email = "user@example.com"
+
+[git]
+autoCommit = true
+autoPush = true
+
+[encryption]
+age.identity = "~/.config/sops/age/keys.txt"
+```
+
+### YAML Configuration
+
+```yaml title="~/.config/chezmoi/chezmoi.yaml"
+sourceDir: ~/.dotfiles
+data:
+  email: user@example.com
+git:
+  autoCommit: true
+  autoPush: true
+```
+
+### JSON Configuration
+
+```json title="~/.config/chezmoi/chezmoi.json"
+{
+  "sourceDir": "~/.dotfiles",
+  "data": {
+    "email": "user@example.com"
+  },
+  "git": {
+    "autoCommit": true,
+    "autoPush": true
+  }
+}
+```
+
+## Related Commands
+
+- [`chezmoi init`](/commands/init) - Initialize chezmoi configuration
+- `chezmoi cat-config` - Print the configuration file
+- `chezmoi data` - Print template data

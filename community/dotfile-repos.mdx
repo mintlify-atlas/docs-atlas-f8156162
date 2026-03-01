@@ -1,0 +1,227 @@
+---
+title: Dotfile Repositories
+description: Browse and learn from community dotfile repositories using chezmoi
+---
+
+Explore dotfile repositories from the chezmoi community to learn best practices, discover new techniques, and get inspiration for your own configuration.
+
+## Repository Platforms
+
+<CardGroup cols={3}>
+  <Card title="GitHub" icon="github" href="https://github.com/topics/chezmoi?o=desc&s=updated">
+    Browse chezmoi repositories on GitHub, sorted by recent activity
+  </Card>
+  
+  <Card title="GitLab" icon="gitlab" href="https://gitlab.com/explore/projects/topics/chezmoi">
+    Explore chezmoi projects on GitLab
+  </Card>
+  
+  <Card title="Codeberg" icon="code" href="https://codeberg.org/explore/repos?sort=recentupdate&q=chezmoi&tab=">
+    Discover chezmoi repositories on Codeberg
+  </Card>
+</CardGroup>
+
+## Why Browse Dotfile Repos?
+
+### Learn by Example
+
+- See how others structure their dotfiles
+- Discover new chezmoi features in action
+- Find solutions to common problems
+- Get ideas for your own configuration
+
+### Best Practices
+
+- Template organization patterns
+- Secret management approaches
+- Cross-platform configuration strategies
+- Script organization and automation
+
+### Inspiration
+
+- Shell configurations (bash, zsh, fish)
+- Editor setups (Vim, Neovim, Emacs, VS Code)
+- Terminal multiplexer configs (tmux, screen)
+- Window manager configurations
+- Tool configurations (git, ssh, etc.)
+
+## What to Look For
+
+### Repository Structure
+
+Well-organized repositories typically include:
+
+- Clear README with setup instructions
+- Organized directory structure
+- Documented templates and scripts
+- Platform-specific configurations
+
+### Template Usage
+
+Look for examples of:
+
+- Conditional configuration based on OS
+- Machine-specific settings
+- Template functions and variables
+- Data files (`.chezmoidata.yaml`)
+
+### Secret Management
+
+Examples of handling secrets:
+
+- Encrypted files
+- Password manager integration
+- Template-based secret injection
+- External file references
+
+### Scripts and Automation
+
+- `run_once_` scripts for one-time setup
+- `run_onchange_` scripts for configuration updates
+- Package installation automation
+- System configuration scripts
+
+## Common Patterns
+
+### Basic Structure
+
+```
+~/.local/share/chezmoi/
+├── .chezmoi.yaml.tmpl          # Config file template
+├── .chezmoiignore              # Ignored files
+├── .chezmoitemplates/          # Reusable templates
+├── dot_bashrc.tmpl             # Shell configuration
+├── dot_gitconfig.tmpl          # Git configuration
+└── run_once_install-packages.sh # Setup script
+```
+
+### Platform-Specific Files
+
+```
+~/.local/share/chezmoi/
+├── dot_bashrc.tmpl
+├── dot_bashrc.linux.tmpl       # Linux-specific
+├── dot_bashrc.darwin.tmpl      # macOS-specific
+└── dot_bashrc.windows.tmpl     # Windows-specific
+```
+
+### Template Data Files
+
+```yaml
+# .chezmoidata.yaml
+email: "user@example.com"
+git:
+  signing_key: "ABC123"
+editor: "nvim"
+```
+
+## Tips for Learning
+
+### Start Small
+
+- Don't try to copy entire configurations
+- Pick specific features you need
+- Understand before implementing
+- Test changes incrementally
+
+### Use as Reference
+
+- Bookmark useful repositories
+- Study different approaches to the same problem
+- Compare implementations
+- Adapt ideas to your needs
+
+### Respect Licenses
+
+- Check repository licenses before using code
+- Give credit where due
+- Follow license terms
+- Consider licensing your own dotfiles
+
+## Sharing Your Dotfiles
+
+Consider making your dotfiles public to help others:
+
+### Benefits
+
+- Contribute to the community
+- Get feedback on your configuration
+- Help others learn
+- Document your setup for yourself
+
+### What to Include
+
+- **README**: Installation instructions, features, requirements
+- **LICENSE**: Choose an open source license
+- **Documentation**: Explain unique configurations
+- **Screenshots**: Show your setup in action
+
+### What to Exclude
+
+- Private API keys or tokens
+- Personal email addresses or phone numbers
+- Company-specific information
+- Sensitive file contents
+
+Use encryption or templates to handle secrets properly.
+
+### Tagging Your Repository
+
+Help others find your dotfiles:
+
+- Add the `chezmoi` topic/tag
+- Include `dotfiles` tag
+- Add platform tags (linux, macos, windows)
+- Include tool tags (vim, zsh, tmux, etc.)
+
+## Popular Configuration Types
+
+### Shell Configurations
+
+- bash
+- zsh (with oh-my-zsh, prezto)
+- fish
+- PowerShell
+
+### Editor Configurations
+
+- Vim/Neovim
+- Emacs
+- VS Code
+- Sublime Text
+
+### Terminal Tools
+
+- tmux
+- screen
+- Alacritty
+- kitty
+- WezTerm
+
+### Window Managers
+
+- i3
+- sway
+- Xmonad
+- awesome
+
+### Development Tools
+
+- Git
+- SSH
+- GPG
+- Docker
+
+## Community Highlights
+
+When you find particularly helpful repositories:
+
+- Star them for future reference
+- Consider contributing improvements
+- Share them with others
+- Learn from their approach
+
+## See Also
+
+- [Articles](/community/articles) - Written guides and tutorials
+- [Videos](/community/videos) - Video tutorials and presentations

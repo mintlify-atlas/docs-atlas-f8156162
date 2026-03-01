@@ -1,0 +1,193 @@
+---
+title: status
+description: Show the status of files and scripts managed by chezmoi
+---
+
+The `status` command prints the status of managed files and scripts in a format similar to `git status`.
+
+## Usage
+
+```bash
+chezmoi status [target]...
+```
+
+## Description
+
+The `status` command shows a two-character status code for each managed file:
+
+- **First column**: Difference between the last state written by chezmoi and the actual state
+- **Second column**: Difference between the actual state and the target state (what `chezmoi apply` will do)
+
+## Status Codes
+
+| Character | Meaning | First Column | Second Column |
+| --- | --- | --- | --- |
+| Space | No change | No change | No change |
+| `A` | Added | Entry was created | Entry will be created |
+| `D` | Deleted | Entry was deleted | Entry will be deleted |
+| `M` | Modified | Entry was modified | Entry will be modified |
+| `R` | Run | Not applicable | Script will be run |
+
+## Flags
+
+<ParamField path="-x, --exclude" type="types">
+  Exclude entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="-i, --include" type="types">
+  Include only specified entry types (comma-separated: `dirs`, `files`, `remove`, `scripts`, `symlinks`, `always`, `encrypted`, `externals`, `templates`).
+</ParamField>
+
+<ParamField path="--init" type="boolean" default="false">
+  Recreate the config file from the template in the source directory.
+</ParamField>
+
+<ParamField path="-P, --parent-dirs" type="boolean" default="false">
+  Show status of all parent directories.
+</ParamField>
+
+<ParamField path="-p, --path-style" type="string" default="relative">
+  Path style to use in output. Options: `absolute`, `relative`. Can be configured via `status.pathStyle` in the config file.
+</ParamField>
+
+<ParamField path="-r, --recursive" type="boolean" default="true">
+  Recurse into subdirectories.
+</ParamField>
+
+## Examples
+
+### Show status of all managed files
+
+```bash
+chezmoi status
+```
+
+### Show status with absolute paths
+
+```bash
+chezmoi status --path-style=absolute
+```
+
+### Show status for specific files
+
+```bash
+chezmoi status ~/.bashrc ~/.vimrc
+```
+
+## Terminal Output
+
+```bash
+$ chezmoi status
+ M .bashrc
+A  .gitconfig
+ D .vimrc
+MM .tmux.conf
+ R run_once_install-packages.sh
+```
+
+## Interpreting Output
+
+### Clean state (no output)
+
+```bash
+$ chezmoi status
+$
+```
+
+All files match the target state. Nothing to do.
+
+### Modified in destination
+
+```bash
+ M .bashrc
+```
+
+You modified `.bashrc` locally. `chezmoi apply` will overwrite it with the target state.
+
+### Modified in source
+
+```bash
+M  .bashrc
+```
+
+The source state changed (e.g., you edited it or pulled changes). The destination file was not modified locally.
+
+### Modified in both
+
+```bash
+MM .bashrc
+```
+
+Both the source and destination were modified. There may be a conflict. Use `chezmoi diff` or `chezmoi merge` to resolve.
+
+### Will be added
+
+```bash
+A  .gitconfig
+```
+
+A new file will be created by `chezmoi apply`.
+
+### Will be deleted
+
+```bash
+ D .vimrc
+```
+
+You deleted `.vimrc` from the source state. `chezmoi apply` will remove it from your home directory.
+
+### Script will run
+
+```bash
+ R run_once_install-packages.sh
+```
+
+A script will be executed by `chezmoi apply`.
+
+## Common Workflows
+
+### Before applying changes
+
+```bash
+chezmoi status    # See what will change
+chezmoi diff      # See detailed differences  
+chezmoi apply     # Apply the changes
+```
+
+### After making local changes
+
+```bash
+chezmoi status    # Check status
+chezmoi diff      # Review changes
+chezmoi add ~/.bashrc  # Add changes to source state
+```
+
+### After pulling from repository
+
+```bash
+chezmoi update --apply=false  # Pull changes
+chezmoi status    # See what changed
+chezmoi diff      # Review differences
+chezmoi apply     # Apply changes
+```
+
+### Checking for conflicts
+
+```bash
+$ chezmoi status
+MM .bashrc        # Conflict detected
+MM .vimrc         # Another conflict
+
+$ chezmoi merge ~/.bashrc  # Resolve with merge tool
+$ chezmoi merge ~/.vimrc
+```
+
+## Exit Code
+
+The `status` command exits with code 0 even if there are differences. Use the output to determine if action is needed.
+
+## Related Commands
+
+- [diff](/commands/diff) - Show detailed differences
+- [apply](/commands/apply) - Apply changes shown in status
+- [merge](/commands/merge) - Resolve conflicts

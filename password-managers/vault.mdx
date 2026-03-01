@@ -1,0 +1,431 @@
+---
+title: HashiCorp Vault
+description: Integrate HashiCorp Vault with chezmoi to manage secrets in your dotfiles
+---
+
+chezmoi includes support for [HashiCorp Vault](https://www.vaultproject.io/) using the [Vault CLI](https://www.vaultproject.io/docs/commands/) to expose data as template functions.
+
+## Setup
+
+### Install Vault CLI
+
+<CodeGroup>
+```bash macOS
+brew install vault
+```
+
+```bash Ubuntu/Debian
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install vault
+```
+
+```bash Fedora
+sudo dnf install -y dnf-plugins-core
+sudo dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo
+sudo dnf install vault
+```
+</CodeGroup>
+
+### Configure Vault
+
+Set the required environment variables:
+
+```bash
+export VAULT_ADDR='https://vault.example.com:8200'
+export VAULT_TOKEN='your-vault-token'
+```
+
+Or add to your shell profile:
+
+```bash ~/.bashrc
+export VAULT_ADDR='https://vault.example.com:8200'
+export VAULT_TOKEN='your-vault-token'
+```
+
+### Verify Setup
+
+Test that Vault is configured correctly:
+
+```bash
+vault kv get -format=json secret/test
+```
+
+## Template Function
+
+### `vault`
+
+Get structured data from Vault:
+
+```text
+{{ (vault "secret/data/myapp").data.data.password }}
+```
+
+This runs `vault kv get -format=json secret/data/myapp` and returns parsed JSON.
+
+<Note>
+  For KV v2 (default), secrets are stored under `secret/data/path`. The response structure is `{"data": {"data": {"key": "value"}}}`.
+</Note>
+
+## Usage Examples
+
+### Simple Secrets (KV v2)
+
+<CodeGroup>
+```bash Store in Vault
+vault kv put secret/github token=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+vault kv put secret/aws access_key_id=AKIAIOSFODNN7EXAMPLE secret_access_key=wJalrXUtnFEMI/K7MDENG
+```
+
+```text Use in Templates
+# GitHub token
+{{ (vault "secret/data/github").data.data.token }}
+
+# AWS credentials
+{{ (vault "secret/data/aws").data.data.access_key_id }}
+{{ (vault "secret/data/aws").data.data.secret_access_key }}
+```
+</CodeGroup>
+
+### Database Credentials
+
+<CodeGroup>
+```bash Store in Vault
+vault kv put secret/database/production \
+    host=db.example.com \
+    port=5432 \
+    username=app_user \
+    password=super_secret_password \
+    database=production_db
+```
+
+```text Use in Template
+# ~/.config/db/config.yml.tmpl
+production:
+  host: {{ (vault "secret/data/database/production").data.data.host }}
+  port: {{ (vault "secret/data/database/production").data.data.port }}
+  username: {{ (vault "secret/data/database/production").data.data.username }}
+  password: {{ (vault "secret/data/database/production").data.data.password }}
+  database: {{ (vault "secret/data/database/production").data.data.database }}
+```
+</CodeGroup>
+
+### Git Configuration
+
+```bash
+vault kv put secret/git \
+    name="John Doe" \
+    email="john@example.com" \
+    signing_key="0x1234567890ABCDEF"
+```
+
+```text ~/.gitconfig.tmpl
+[user]
+    name = {{ (vault "secret/data/git").data.data.name }}
+    email = {{ (vault "secret/data/git").data.data.email }}
+    signingkey = {{ (vault "secret/data/git").data.data.signing_key }}
+```
+
+### AWS Credentials
+
+```bash
+vault kv put secret/aws/personal \
+    access_key_id=AKIAIOSFODNN7EXAMPLE \
+    secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY \
+    region=us-east-1
+
+vault kv put secret/aws/work \
+    access_key_id=AKIAI44QH8DHBEXAMPLE \
+    secret_access_key=je7MtGbClwBF/2Zp9Utk/h3yCo8nvbEXAMPLEKEY \
+    region=us-west-2
+```
+
+```text ~/.aws/credentials.tmpl
+[personal]
+aws_access_key_id = {{ (vault "secret/data/aws/personal").data.data.access_key_id }}
+aws_secret_access_key = {{ (vault "secret/data/aws/personal").data.data.secret_access_key }}
+region = {{ (vault "secret/data/aws/personal").data.data.region }}
+
+[work]
+aws_access_key_id = {{ (vault "secret/data/aws/work").data.data.access_key_id }}
+aws_secret_access_key = {{ (vault "secret/data/aws/work").data.data.secret_access_key }}
+region = {{ (vault "secret/data/aws/work").data.data.region }}
+```
+
+### Multiple API Keys
+
+```bash
+vault kv put secret/api-keys \
+    github=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+    gitlab=glpat-xxxxxxxxxxxxxxxxxxxx \
+    openai=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+    stripe=sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+```text ~/.config/api-keys.env.tmpl
+GITHUB_TOKEN={{ (vault "secret/data/api-keys").data.data.github }}
+GITLAB_TOKEN={{ (vault "secret/data/api-keys").data.data.gitlab }}
+OPENAI_API_KEY={{ (vault "secret/data/api-keys").data.data.openai }}
+STRIPE_SECRET_KEY={{ (vault "secret/data/api-keys").data.data.stripe }}
+```
+
+### SSH Configuration
+
+```bash
+vault kv put secret/ssh/github user=git
+vault kv put secret/ssh/gitlab user=git  
+vault kv put secret/ssh/work-server user=john.doe host=server.company.com
+```
+
+```text ~/.ssh/config.tmpl
+Host github.com
+    User {{ (vault "secret/data/ssh/github").data.data.user }}
+    IdentityFile ~/.ssh/id_ed25519
+
+Host gitlab.com
+    User {{ (vault "secret/data/ssh/gitlab").data.data.user }}
+    IdentityFile ~/.ssh/id_rsa
+
+Host work-server
+    HostName {{ (vault "secret/data/ssh/work-server").data.data.host }}
+    User {{ (vault "secret/data/ssh/work-server").data.data.user }}
+    IdentityFile ~/.ssh/work_id_rsa
+```
+
+### NPM Configuration
+
+```bash
+vault kv put secret/npm token=npm_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx email=user@example.com
+```
+
+```text ~/.npmrc.tmpl
+//registry.npmjs.org/:_authToken={{ (vault "secret/data/npm").data.data.token }}
+email={{ (vault "secret/data/npm").data.data.email }}
+```
+
+## Vault KV Versions
+
+### KV v2 (Default)
+
+KV v2 includes versioning and metadata:
+
+```bash
+# Write
+vault kv put secret/myapp password=secret123
+
+# Read in template
+{{ (vault "secret/data/myapp").data.data.password }}
+```
+
+Note the `data` in the path and nested structure.
+
+### KV v1
+
+KV v1 is simpler without versioning:
+
+```bash
+# Write
+vault kv put secret/myapp password=secret123
+
+# Read in template (if using KV v1)
+{{ (vault "secret/myapp").data.password }}
+```
+
+## Configuration
+
+### Custom Command
+
+If `vault` is not in your PATH:
+
+```toml ~/.config/chezmoi/chezmoi.toml
+[vault]
+    command = "/custom/path/to/vault"
+```
+
+### Environment Variables
+
+Vault CLI respects these environment variables:
+
+```bash
+export VAULT_ADDR='https://vault.example.com:8200'
+export VAULT_TOKEN='your-vault-token'
+export VAULT_NAMESPACE='my-namespace'  # For Vault Enterprise
+export VAULT_SKIP_VERIFY='true'        # Skip TLS verification (not recommended)
+```
+
+## Advanced Usage
+
+### Using Vault Namespaces (Enterprise)
+
+```bash
+export VAULT_NAMESPACE='my-namespace'
+```
+
+```text
+{{ (vault "secret/data/myapp").data.data.password }}
+```
+
+### Dynamic Database Credentials
+
+Vault can generate dynamic database credentials:
+
+```bash
+# Enable database secrets engine
+vault secrets enable database
+
+# Configure
+vault write database/config/postgresql \
+    plugin_name=postgresql-database-plugin \
+    connection_url="postgresql://{{username}}:{{password}}@localhost:5432/postgres"
+
+# Create role
+vault write database/roles/readonly \
+    db_name=postgresql \
+    creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';" \
+    default_ttl="1h" \
+    max_ttl="24h"
+```
+
+```text
+# Read dynamic credentials
+{{ $dbCreds := vault "database/creds/readonly" }}
+username: {{ $dbCreds.data.username }}
+password: {{ $dbCreds.data.password }}
+```
+
+### Vault Auth Methods
+
+<CodeGroup>
+```bash Token Auth
+export VAULT_TOKEN='your-vault-token'
+```
+
+```bash AppRole Auth
+vault write auth/approle/login \
+    role_id="$ROLE_ID" \
+    secret_id="$SECRET_ID"
+```
+
+```bash Kubernetes Auth
+vault write auth/kubernetes/login \
+    role="my-role" \
+    jwt="$SA_TOKEN"
+```
+</CodeGroup>
+
+### Simplified Access with Variables
+
+```text ~/.config/app/config.yml.tmpl
+{{- $db := (vault "secret/data/database").data.data -}}
+{{- $api := (vault "secret/data/api-keys").data.data -}}
+
+database:
+  host: {{ $db.host }}
+  port: {{ $db.port }}
+  username: {{ $db.username }}
+  password: {{ $db.password }}
+
+api_keys:
+  github: {{ $api.github }}
+  gitlab: {{ $api.gitlab }}
+  openai: {{ $api.openai }}
+```
+
+## Complete Examples
+
+### Multi-Service Configuration
+
+```text ~/.config/services.yml.tmpl
+{{- $github := (vault "secret/data/github").data.data -}}
+{{- $aws := (vault "secret/data/aws").data.data -}}
+{{- $db := (vault "secret/data/database/production").data.data -}}
+
+github:
+  token: {{ $github.token }}
+  username: {{ $github.username }}
+
+aws:
+  access_key_id: {{ $aws.access_key_id }}
+  secret_access_key: {{ $aws.secret_access_key }}
+  region: {{ $aws.region }}
+
+database:
+  host: {{ $db.host }}
+  port: {{ $db.port }}
+  username: {{ $db.username }}
+  password: {{ $db.password }}
+  database: {{ $db.database }}
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+Ensure `VAULT_ADDR` is set correctly:
+
+```bash
+echo $VAULT_ADDR
+vault status
+```
+
+### Permission Denied
+
+Verify your token has the required policies:
+
+```bash
+vault token lookup
+vault policy read my-policy
+```
+
+### Secret Not Found
+
+List secrets to verify the path:
+
+```bash
+vault kv list secret/
+vault kv get secret/data/myapp
+```
+
+### TLS Certificate Errors
+
+For development, you can skip TLS verification (not recommended for production):
+
+```bash
+export VAULT_SKIP_VERIFY=true
+```
+
+### Testing Templates
+
+Test template functions:
+
+```bash
+chezmoi execute-template '{{ (vault "secret/data/test").data.data.value }}'
+```
+
+### Verify Vault CLI
+
+```bash
+which vault
+vault --version
+vault status
+```
+
+## Best Practices
+
+1. **Use least privilege**: Grant minimal required permissions via policies
+2. **Rotate tokens**: Use short-lived tokens and rotate regularly
+3. **Use namespaces**: Organize secrets with namespaces (Enterprise)
+4. **Enable audit logging**: Track all secret access
+5. **Use dynamic secrets**: Leverage Vault's dynamic secret generation
+6. **Secure communication**: Always use TLS in production
+7. **Use auth methods**: Prefer AppRole or Kubernetes auth over tokens
+8. **Organize paths**: Use a clear hierarchy for secret paths
+9. **Version secrets**: Use KV v2 for secret versioning
+10. **Monitor access**: Set up alerts for suspicious access patterns
+
+## See Also
+
+- [HashiCorp Vault Documentation](https://www.vaultproject.io/docs)
+- [Vault CLI Commands](https://www.vaultproject.io/docs/commands)
+- [Vault KV Secrets Engine](https://www.vaultproject.io/docs/secrets/kv)
+- [Template Functions Reference](/reference/templates/password-manager-functions#vault)

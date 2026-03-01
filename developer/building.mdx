@@ -1,0 +1,129 @@
+---
+title: Building chezmoi
+description: Instructions for building chezmoi from source
+---
+
+chemzoi is written in [Go](https://golang.org) and development happens on [GitHub](https://github.com). chezmoi is a standard Go project, using standard Go tooling. chezmoi requires Go 1.25 or later.
+
+## Quick Start
+
+Checkout chezmoi:
+
+```sh
+git clone https://github.com/twpayne/chezmoi.git
+cd chezmoi
+```
+
+Build chezmoi:
+
+```sh
+go build
+```
+
+Run chezmoi:
+
+```sh
+go tool chezmoi --version
+```
+
+## Building with Make
+
+chezmoi can be built with GNU make, assuming you have the Go toolchain installed.
+
+Running `make` will build a `chezmoi` binary in the current directory for the host OS and architecture. To embed version information in the binary and control installation the following variables are available:
+
+| Variable | Example | Purpose |
+| --- | --- | --- |
+| `$VERSION` | `v2.0.0` | Set version |
+| `$COMMIT` | `3895680a`... | Set the git commit at which the code was built |
+| `$DATE` | `2019-11-23T18:29:25Z` | The time of the build |
+| `$BUILT_BY` | `homebrew` | The packaging system performing the build |
+| `$PREFIX` | `/usr` | Installation prefix |
+| `$DESTDIR` | `install-root` | Fake installation root |
+
+Running `make install` will install the `chezmoi` binary in `${DESTDIR}${PREFIX}/bin`.
+
+## Build Targets
+
+### Default Build
+
+Build for the current platform:
+
+```sh
+make build
+```
+
+### Build from Git Working Copy
+
+Build with embedded version information from git:
+
+```sh
+make build-in-git-working-copy
+```
+
+Install with embedded version information from git:
+
+```sh
+make install-from-git-working-copy
+```
+
+### Cross-Compilation
+
+Build for all supported platforms:
+
+```sh
+make build-all
+```
+
+Or build for specific platforms:
+
+```sh
+make build-darwin    # macOS (amd64 and arm64)
+make build-freebsd   # FreeBSD (amd64)
+make build-linux     # Linux (amd64)
+make build-windows   # Windows (amd64)
+```
+
+### Test Builds
+
+Run a set of smoke tests, including cross-compilation, tests, and linting:
+
+```sh
+make smoke-test
+```
+
+Test building chezmoi for all architectures:
+
+```sh
+make test-release
+```
+
+## Shell Configuration
+
+<Note>
+If you use `fish` as your primary shell, you may get warnings from Fish during tests:
+
+```text
+error: can not save history
+warning-path: Unable to locate data directory derived from $HOME: '/home/user/.local/share/fish'.
+warning-path: The error was 'Operation not supported'.
+warning-path: Please set $HOME to a directory where you have write access.
+```
+
+These can be avoided by running tests with `SHELL=bash` or `SHELL=zsh`:
+
+```sh
+SHELL=bash make test
+SHELL=zsh make smoke-test
+SHELL=bash go test ./...
+```
+</Note>
+
+## Build Dependencies
+
+chezmoi has no build dependencies other than the standard Go toolchain.
+
+## See Also
+
+- [Testing](/developer/testing) - Running the test suite
+- [Packaging](/developer/packaging) - Packaging guidelines for distributions

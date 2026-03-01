@@ -1,0 +1,148 @@
+---
+title: merge
+description: Perform three-way merges between the destination, source, and target states
+---
+
+The `merge` command performs a three-way merge between the destination state (your current file), the source state (in your chezmoi directory), and the target state (what chezmoi wants to apply).
+
+## Usage
+
+```bash
+chezmoi merge target...
+```
+
+## Description
+
+The `merge` command invokes your configured merge tool to help resolve conflicts between three versions of a file:
+
+1. **Destination** - The current state of the file in your home directory
+2. **Source** - The file in chezmoi's source directory
+3. **Target** - The computed target state (templates evaluated, files decrypted, etc.)
+
+The merge tool is defined by the `merge.command` configuration variable and defaults to `vimdiff`. If multiple targets are specified, the merge tool is invoked separately and sequentially for each target.
+
+If the target state cannot be computed (e.g., a template with errors or an encrypted file that cannot be decrypted), a two-way merge is performed instead.
+
+## Merge Command Arguments
+
+The order of arguments to `merge.command` is set by `merge.args`. Each argument is interpreted as a template with these variables:
+
+- `.Destination` - Path to the file in the destination state
+- `.Source` - Path to the file in the source state  
+- `.Target` - Path to the file in the target state
+
+Default value: `["{{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]`
+
+If `merge.args` doesn't contain template arguments, the three paths will be appended automatically.
+
+## Configuration
+
+Configure your merge tool in your config file:
+
+```toml
+[merge]
+    command = "vimdiff"
+```
+
+Common merge tools:
+
+```toml
+# vimdiff (default)
+[merge]
+    command = "vimdiff"
+
+# meld
+[merge]
+    command = "meld"
+    args = ["{{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]
+
+# kdiff3
+[merge]
+    command = "kdiff3"
+    args = ["{{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]
+
+# VS Code
+[merge]
+    command = "code"
+    args = ["--wait", "--diff", "{{ .Destination }}", "{{ .Target }}"]
+```
+
+## Examples
+
+### Merge a single file
+
+```bash
+chezmoi merge ~/.bashrc
+```
+
+Opens your merge tool with three versions of `.bashrc`.
+
+### Merge multiple files
+
+```bash
+chezmoi merge ~/.bashrc ~/.vimrc
+```
+
+Opens the merge tool separately for each file.
+
+## Workflow
+
+1. **Detect conflict** - Use `chezmoi status` or `chezmoi diff` to identify files with conflicts
+2. **Merge** - Run `chezmoi merge <file>` to resolve conflicts
+3. **Review** - Use your merge tool to choose which changes to keep
+4. **Save** - The source file is automatically updated when you save and exit
+5. **Apply** - Run `chezmoi apply` to apply the merged changes
+
+## Example Workflow
+
+```bash
+# Check status
+$ chezmoi status
+MM .bashrc
+
+# See what changed
+$ chezmoi diff ~/.bashrc
+
+# Merge to resolve conflicts  
+$ chezmoi merge ~/.bashrc
+# (merge tool opens, resolve conflicts, save and exit)
+
+# Verify the merge
+$ chezmoi diff ~/.bashrc
+
+# Apply changes
+$ chezmoi apply ~/.bashrc
+```
+
+## Encrypted Files
+
+For encrypted files, chezmoi automatically:
+
+1. Decrypts the source file to a temporary directory
+2. Invokes the merge tool with the decrypted plaintext
+3. Re-encrypts the file after you save and exit
+
+## Template Files
+
+For template files, the merge shows:
+
+- **Destination**: Your current file
+- **Source**: The template source with `{{ }}` syntax
+- **Target**: The evaluated template
+
+This allows you to see both the template logic and the final output.
+
+## Terminal Output
+
+```bash
+$ chezmoi merge ~/.bashrc
+# (vimdiff opens with three-way split)
+# After resolving and saving:
+merged ~/.bashrc
+```
+
+## Related Commands
+
+- [diff](/commands/diff) - View differences before merging
+- [edit](/commands/edit) - Edit source files directly
+- [status](/commands/status) - Check for conflicts
