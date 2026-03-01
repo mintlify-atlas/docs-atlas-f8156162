@@ -1,0 +1,230 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "chezmoi",
+  "projectDescription": "Manage your dotfiles across multiple diverse machines, securely.",
+  "theme": "aspen",
+  "primaryColor": "#2da44e",
+  "lightColor": "#40c463",
+  "darkColor": "#238636",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "install",
+              "quick-start"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/what-does-chezmoi-do",
+              "concepts/why-use-chezmoi",
+              "concepts/how-chezmoi-works"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "user-guide/setup",
+              "user-guide/daily-operations",
+              "user-guide/manage-different-types-of-file",
+              "user-guide/manage-machine-to-machine-differences",
+              "user-guide/templating",
+              "user-guide/use-scripts-to-perform-actions",
+              "user-guide/include-files-from-elsewhere"
+            ]
+          },
+          {
+            "group": "Encryption & Secrets",
+            "pages": [
+              "encryption/overview",
+              "encryption/age",
+              "encryption/gpg"
+            ]
+          },
+          {
+            "group": "Password Managers",
+            "pages": [
+              "password-managers/1password",
+              "password-managers/bitwarden",
+              "password-managers/lastpass",
+              "password-managers/keepassxc",
+              "password-managers/pass",
+              "password-managers/aws-secrets-manager",
+              "password-managers/azure-key-vault",
+              "password-managers/gopass",
+              "password-managers/vault",
+              "password-managers/doppler",
+              "password-managers/dashlane",
+              "password-managers/keeper",
+              "password-managers/proton-pass",
+              "password-managers/passhole"
+            ]
+          },
+          {
+            "group": "Advanced Usage",
+            "pages": [
+              "advanced/migrating-from-another-dotfile-manager",
+              "advanced/machines",
+              "advanced/tools",
+              "advanced/customize-chezmoi"
+            ]
+          },
+          {
+            "group": "FAQ",
+            "pages": [
+              "faq/general",
+              "faq/design",
+              "faq/usage",
+              "faq/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Command Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "commands/overview",
+              "commands/init",
+              "commands/add",
+              "commands/apply",
+              "commands/update",
+              "commands/edit",
+              "commands/diff",
+              "commands/merge",
+              "commands/status",
+              "commands/cd",
+              "commands/cat",
+              "commands/execute-template",
+              "commands/managed",
+              "commands/unmanaged",
+              "commands/verify",
+              "commands/doctor",
+              "commands/upgrade",
+              "commands/completion"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "reference/configuration-file",
+              "reference/source-state-attributes",
+              "reference/target-types",
+              "reference/special-files-and-directories",
+              "reference/application-order"
+            ]
+          },
+          {
+            "group": "Templates",
+            "pages": [
+              "reference/templates/overview",
+              "reference/templates/functions",
+              "reference/templates/variables",
+              "reference/templates/directives",
+              "reference/templates/password-manager-functions"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developer Guide",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "developer/contributing",
+              "developer/architecture",
+              "developer/building",
+              "developer/testing"
+            ]
+          },
+          {
+            "group": "Building on chezmoi",
+            "pages": [
+              "developer/building-on-top-of-chezmoi",
+              "developer/packaging",
+              "developer/install-script"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "developer/releases",
+              "developer/security"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Resources",
+            "pages": [
+              "community/comparison-table",
+              "community/articles",
+              "community/videos",
+              "community/dotfile-repos"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Manage dotfiles across multiple machines with git",
+    "Template support for machine-specific configurations",
+    "Integrate with 15+ password managers for secure secret management",
+    "Full file encryption with age, GPG, or git-crypt",
+    "Cross-platform support (Linux, macOS, Windows, BSD, Termux)",
+    "Run scripts for advanced automation",
+    "Single-command setup and updates",
+    "Declarative and atomic file updates"
+  ],
+  "publicApiSurface": [
+    "chezmoi init",
+    "chezmoi add",
+    "chezmoi edit",
+    "chezmoi apply",
+    "chezmoi update",
+    "chezmoi diff",
+    "chezmoi merge",
+    "chezmoi status",
+    "chezmoi cd",
+    "chezmoi cat",
+    "chezmoi execute-template",
+    "chezmoi managed",
+    "chezmoi unmanaged",
+    "chezmoi verify",
+    "chezmoi doctor",
+    "chezmoi upgrade",
+    "chezmoi age",
+    "chezmoi completion",
+    "chezmoi archive",
+    "chezmoi chattr",
+    "chezmoi data",
+    "chezmoi destroy",
+    "chezmoi dump",
+    "chezmoi encrypt/decrypt",
+    "chezmoi forget",
+    "chezmoi generate",
+    "chezmoi git",
+    "chezmoi import",
+    "chezmoi merge-all",
+    "chezmoi purge",
+    "chezmoi re-add",
+    "chezmoi remove",
+    "chezmoi secret",
+    "chezmoi source-path",
+    "chezmoi state",
+    "chezmoi target-path"
+  ]
+}
